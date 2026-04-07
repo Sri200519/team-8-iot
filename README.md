@@ -1,9 +1,9 @@
-# [Team Name] — [System Name]
+# Endless Eight — IoT Sensor Monitoring Dashboard
 
 **Course:** COMPSCI 426  
-**Team:** [Name], [Name], [Name], ...  
-**System:** [e.g. Event Ticketing / Food Delivery / Video Platform / ...]  
-**Repository:** [GitHub URL — public fork of https://github.com/umass-cs-426/starter-project]
+**Team:** Eric Gu, Zaeem Chaudhary, Justin Manoj, Sean Young, Srikar Kopparapu, Nam Pham, William Hammond, Nathan Chen
+**System:** IoT Sensor Monitoring Dashboard
+**Repository:** https://github.com/Sri200519/team-8-iot.git
 
 ---
 
@@ -11,9 +11,14 @@
 
 | Team Member | Services / Components Owned                            |
 | ----------- | ------------------------------------------------------ |
-| [Name]      | [e.g. `order-service/`, `order-service/db/schema.sql`] |
-| [Name]      | [e.g. `restaurant-service/`, `redis/menu-cache`]       |
-| [Name]      | [e.g. `dispatch-worker/`, `k6/`]                       |
+| Zaeem Chaudhary       | `Ingestion Service, Caddy`     |
+| Srikar Kopparapu      | `Ingestion Service, Caddy`               |
+| Nathan Chen           | `Storage Worker, Sensor Simulator`               |
+| Justin Manoj          | `Storage Worker, Sensor Simulator`               |
+| Sean Young            | `Sensor Registry Service`               |
+| Nam Pham              | `Dashboard Service`           |
+| William Hammond       | `Anomaly Worker`               |
+| Eric Gu               | `Alert Service` |
 
 > Ownership is verified by `git log --author`. Each person must have meaningful commits in the directories they claim.
 
