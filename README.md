@@ -11,9 +11,14 @@
 
 | Team Member | Services / Components Owned                            |
 | ----------- | ------------------------------------------------------ |
-| [Name]      | [e.g. `order-service/`, `order-service/db/schema.sql`] |
-| [Name]      | [e.g. `restaurant-service/`, `redis/menu-cache`]       |
-| [Name]      | [e.g. `dispatch-worker/`, `k6/`]                       |
+| Zaeem Chaudhary       | `Ingestion Service, Caddy`     |
+| Srikar Kopparapu      | `Ingestion Service, Caddy`               |
+| Nathan Chen           | `Storage Worker, Sensor Simulator`               |
+| Justin Manoj          | `Storage Worker, Sensor Simulator`               |
+| Sean Young            | `Sensor Registry Service`               |
+| Nam Pham              | `Dashboard Service`           |
+| William Hammond       | `Anomaly Worker`               |
+| Eric Gu               | `Alert Service` |
 
 > Ownership is verified by `git log --author`. Each person must have meaningful commits in the directories they claim.
 
