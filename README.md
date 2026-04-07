@@ -1,9 +1,9 @@
-# [Team Name] — [System Name]
+# Endless Eight — IoT Sensor Monitoring Dashboard
 
 **Course:** COMPSCI 426  
-**Team:** [Name], [Name], [Name], ...  
-**System:** [e.g. Event Ticketing / Food Delivery / Video Platform / ...]  
-**Repository:** [GitHub URL — public fork of https://github.com/umass-cs-426/starter-project]
+**Team:** Eric Gu, Zaeem Chaudhary, Justin Manoj, Sean Young, Srikar Kopparapu, Nam Pham, William Hammond, Nathan Chen
+**System:** IoT Sensor Monitoring Dashboard
+**Repository:** https://github.com/Sri200519/team-8-iot.git
 
 ---
 
