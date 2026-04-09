@@ -48,7 +48,97 @@ services:
       - team-net
     environment:
       - TERM=xterm-256color
-    # Holmes has no ports — access it via: docker compose exec holmes bash
+# Holmes has no ports — access it via: docker compose exec holmes bash
+
+  readings:
+    image: postgres:16
+    container_name: readings
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: readings-db
+    volumes:
+      - readings-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d readings-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  sensor-registry:
+    image: postgres:16
+    container_name: sensor-registry
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: sensor-registry-db
+    volumes:
+      - sensor-registry-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d sensor-registry-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  alert:
+    image: postgres:16
+    container_name: alert
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: alert-db
+    volumes:
+      - alert-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d alert-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  report:
+    image: postgres:16
+    container_name: report
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: report-db
+    volumes:
+      - report-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d report-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  device:
+    image: postgres:16
+    container_name: device
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: device-db
+    volumes:
+      - device-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d device-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   # ── Add your services here ─────────────────────────────────────────────────
   #
@@ -114,5 +204,9 @@ services:
 # ── Named volumes ──────────────────────────────────────────────────────────────
 # Declare a volume for each database here, e.g.:
 #
-# volumes:
-#   postgres-data:
+volumes:
+  readings-data:
+  sensor-registry-data:
+  alert-data:
+  report-data:
+  device-data:
