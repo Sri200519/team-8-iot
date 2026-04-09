@@ -33,6 +33,7 @@ CREATE TABLE sensors (
 );
 ```
 
+## Example Payload:
 ```json
 {
   "sensor_id": "sensor-7a8b9c",
