@@ -50,6 +50,23 @@ services:
       - TERM=xterm-256color
 # Holmes has no ports — access it via: docker compose exec holmes bash
 
+# ── Ingestion Service ──────────────────────────────────────────────────────
+  ingestion:
+    build: ./ingestion
+    container_name: ingestion-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+# ── Readings Database ──────────────────────────────────────────────────────
   readings:
     image: postgres:16
     container_name: readings
@@ -68,6 +85,7 @@ services:
       timeout: 3s
       retries: 5
 
+# ── Sensor Registry Database ──────────────────────────────────────────────────────
   sensor-registry:
     image: postgres:16
     container_name: sensor-registry
@@ -86,6 +104,7 @@ services:
       timeout: 3s
       retries: 5
 
+# ── Alert Database ──────────────────────────────────────────────────────
   alert:
     image: postgres:16
     container_name: alert
@@ -104,6 +123,7 @@ services:
       timeout: 3s
       retries: 5
 
+# ── Report Database ──────────────────────────────────────────────────────
   report:
     image: postgres:16
     container_name: report
@@ -122,6 +142,7 @@ services:
       timeout: 3s
       retries: 5
 
+# ── Device Database ──────────────────────────────────────────────────────
   device:
     image: postgres:16
     container_name: device
