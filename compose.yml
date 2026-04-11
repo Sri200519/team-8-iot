@@ -55,6 +55,8 @@ services:
     build: ./ingestion
     container_name: ingestion-service
     restart: unless-stopped
+    depends_on:
+      - redis
     ports:
       - "3001:3001"
     networks:
@@ -71,6 +73,9 @@ services:
     build: ./dashboard-api
     container_name: dashboard-api
     restart: unless-stopped
+    depends_on:
+      - readings
+      - redis
     ports:
       - "3000:3000"
     networks:
@@ -174,6 +179,18 @@ services:
       - team-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d device-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: unless-stopped
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
