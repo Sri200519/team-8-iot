@@ -47,6 +47,6 @@ export default function () {
 
 export function handleSummary(data) {
   return {
-    "k6-summary.json": JSON.stringify(data)
+    "k6-sprint-1-summary.json": JSON.stringify(data)
   };
 }
