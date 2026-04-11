@@ -63,8 +63,25 @@ services:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 15s
+
+# ── Dashboard API ──────────────────────────────────────────────────────
+  dashboard-api:
+    build: ./dashboard-api
+    container_name: dashboard-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
 
 # ── Readings Database ──────────────────────────────────────────────────────
   readings:
