@@ -48,7 +48,152 @@ services:
       - team-net
     environment:
       - TERM=xterm-256color
-    # Holmes has no ports — access it via: docker compose exec holmes bash
+# Holmes has no ports — access it via: docker compose exec holmes bash
+
+# ── Ingestion Service ──────────────────────────────────────────────────────
+  ingestion:
+    build: ./ingestion
+    container_name: ingestion-service
+    restart: unless-stopped
+    depends_on:
+      - redis
+    ports:
+      - "3001:3001"
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+# ── Dashboard API ──────────────────────────────────────────────────────
+  dashboard-api:
+    build: ./dashboard-api
+    container_name: dashboard-api
+    restart: unless-stopped
+    depends_on:
+      - readings
+      - redis
+    ports:
+      - "3000:3000"
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+
+# ── Readings Database ──────────────────────────────────────────────────────
+  readings:
+    image: postgres:16
+    container_name: readings
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: readings-db
+    volumes:
+      - readings-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d readings-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+# ── Sensor Registry Database ──────────────────────────────────────────────────────
+  sensor-registry:
+    image: postgres:16
+    container_name: sensor-registry
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: sensor-registry-db
+    volumes:
+      - sensor-registry-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d sensor-registry-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+# ── Alert Database ──────────────────────────────────────────────────────
+  alert:
+    image: postgres:16
+    container_name: alert
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: alert-db
+    volumes:
+      - alert-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d alert-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+# ── Report Database ──────────────────────────────────────────────────────
+  report:
+    image: postgres:16
+    container_name: report
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: report-db
+    volumes:
+      - report-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d report-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+# ── Device Database ──────────────────────────────────────────────────────
+  device:
+    image: postgres:16
+    container_name: device
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: device-db
+    volumes:
+      - device-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d device-db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: unless-stopped
+    networks:
+      - team-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   # ── Add your services here ─────────────────────────────────────────────────
   #
@@ -114,5 +259,9 @@ services:
 # ── Named volumes ──────────────────────────────────────────────────────────────
 # Declare a volume for each database here, e.g.:
 #
-# volumes:
-#   postgres-data:
+volumes:
+  readings-data:
+  sensor-registry-data:
+  alert-data:
+  report-data:
+  device-data:
