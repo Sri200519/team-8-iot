@@ -18,7 +18,7 @@ const errorRate = new Rate("errors");
 // ── Configuration ─────────────────────────────────────────────────────────────
 // Update this URL to point to your main read endpoint.
 // From inside the holmes container, use the service name (not localhost).
-const TARGET_URL = "http://your-service:3000/your-endpoint";
+const TARGET_URL = "http://dashboard:3000/";
 
 export const options = {
   stages: [
@@ -30,6 +30,7 @@ export const options = {
     http_req_duration: ["p(95)<500"], // 95% of requests under 500ms
     errors: ["rate<0.01"],            // less than 1% error rate
   },
+  summaryTrendStats: ['p(50)', 'p(95)', 'p(99)'],
 };
 
 export default function () {
@@ -42,4 +43,10 @@ export default function () {
 
   errorRate.add(!ok);
   sleep(0.5);
+}
+
+export function handleSummary(data) {
+  return {
+    "k6-sprint-1-summary.txt": `Results: ${JSON.stringify(data)}`
+  };
 }
