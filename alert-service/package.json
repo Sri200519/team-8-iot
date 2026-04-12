@@ -1,0 +1,14 @@
+{
+  "name": "alert-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "redis": "^4.6.7",
+    "pg": "^8.11.3"
+  }
+}
