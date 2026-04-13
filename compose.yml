@@ -48,11 +48,19 @@ services:
       - team-net
     environment:
       - TERM=xterm-256color
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'healthy'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
   # Holmes has no ports — access it via: docker compose exec holmes bash
 
   # ── Ingestion Service ──────────────────────────────────────────────────────
   ingestion:
-    build: ./ingestion
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
     container_name: ingestion-service
     restart: unless-stopped
     depends_on:
@@ -62,12 +70,12 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgres://user:pass@ingestion-db:5432/ingestion-db
-    ports:
-      - "3001:3001"
+      - REDIS_URL=redis://redis:6379
+      - SERVICE_NAME=ingestion-service
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3001/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -87,14 +95,16 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d ingestion-db" ]
+      test: ["CMD-SHELL", "pg_isready -U user -d ingestion-db"]
       interval: 5s
       timeout: 3s
       retries: 5
 
   # ── Dashboard API ──────────────────────────────────────────────────────
   dashboard-api:
-    build: ./dashboard-api
+    build:
+      context: .
+      dockerfile: dashboard-api/Dockerfile
     container_name: dashboard-api
     restart: unless-stopped
     depends_on:
@@ -102,12 +112,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://user:pass@readings:5432/readings-db
+      - REDIS_URL=redis://redis:6379
+      - SERVICE_NAME=dashboard-api
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -127,7 +139,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d readings-db" ]
+      test: ["CMD-SHELL", "pg_isready -U user -d readings-db"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -146,7 +158,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d sensor-registry-db" ]
+      test: ["CMD-SHELL", "pg_isready -U user -d sensor-registry-db"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -165,7 +177,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d alert-db" ]
+      test: ["CMD-SHELL", "pg_isready -U user -d alert-db"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -184,7 +196,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d report-db" ]
+      test: ["CMD-SHELL", "pg_isready -U user -d report-db"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -203,7 +215,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d device-db" ]
+      test: ["CMD-SHELL", "pg_isready -U user -d device-db"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -215,7 +227,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -283,23 +295,24 @@ services:
 
   # ── Sensor Registry Service ─────────────────────────────────────────────
   sensor-registry-service:
-    build: ./sensor-registry
+    build:
+      context: .
+      dockerfile: sensor-registry/Dockerfile
     container_name: sensor-registry-service
     restart: unless-stopped
-    ports:
-      - "3003:3000"
     networks:
       - team-net
     environment:
       - DATABASE_URL=postgres://user:pass@sensor-registry:5432/sensor-registry-db
       - REDIS_URL=redis://redis:6379
+      - SERVICE_NAME=sensor-registry-service
     depends_on:
       sensor-registry:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -307,23 +320,24 @@ services:
 
   # ── Alert Service ───────────────────────────────────────────────────────
   alert-service:
-    build: ./alert-service
+    build:
+      context: .
+      dockerfile: alert-service/Dockerfile
     container_name: alert-service
     restart: unless-stopped
-    ports:
-      - "3004:3000"
     networks:
       - team-net
     environment:
       - DATABASE_URL=postgres://user:pass@alert:5432/alert-db
       - REDIS_URL=redis://redis:6379
+      - SERVICE_NAME=alert-service
     depends_on:
       alert:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

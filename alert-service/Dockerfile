@@ -1,13 +1,11 @@
 FROM node:18
-
 WORKDIR /app
-
-COPY package*.json ./
-
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
+COPY alert-service/package*.json ./
 RUN npm install
-
-COPY . .
-
+COPY alert-service/ ./
+COPY lib/ ./lib/
 EXPOSE 3000
-
 CMD ["npm", "start"]
