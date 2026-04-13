@@ -56,8 +56,12 @@ services:
     container_name: ingestion-service
     restart: unless-stopped
     depends_on:
+      ingestion-db:
+        condition: service_healthy
       redis:
         condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://user:pass@ingestion-db:5432/ingestion-db
     ports:
       - "3001:3001"
     networks:
@@ -68,6 +72,25 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  # ── Ingestion Database ──────────────────────────────────────────────────────
+  ingestion-db:
+    image: postgres:16
+    container_name: ingestion-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: ingestion-db
+    volumes:
+      - ingestion-data:/var/lib/postgresql/data
+    networks:
+      - team-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d ingestion-db" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 # ── Dashboard API ──────────────────────────────────────────────────────
   dashboard-api:

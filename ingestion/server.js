@@ -1,5 +1,10 @@
 import express from 'express'
+import pkg from 'pg'
 
+const { Pool } = pkg
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL
+})
 
 const app = express()
 const port = 3001
