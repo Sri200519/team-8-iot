@@ -18,7 +18,7 @@ const errorRate = new Rate("errors");
 // ── Configuration ─────────────────────────────────────────────────────────────
 // Update this URL to point to your main read endpoint.
 // From inside the holmes container, use the service name (not localhost).
-const TARGET_URL = "http://dashboard:3000/";
+const TARGET_URL = "http://dashboard-api:3000/dashboard";
 
 export const options = {
   stages: [
@@ -30,7 +30,6 @@ export const options = {
     http_req_duration: ["p(95)<500"], // 95% of requests under 500ms
     errors: ["rate<0.01"],            // less than 1% error rate
   },
-  summaryTrendStats: ['p(50)', 'p(95)', 'p(99)'],
 };
 
 export default function () {
@@ -46,7 +45,20 @@ export default function () {
 }
 
 export function handleSummary(data) {
+  const p50 = data.metrics.http_req_duration.values['med'];
+  const p90 = data.metrics.http_req_duration.values['p(90)'];
+  const p95 = data.metrics.http_req_duration.values['p(95)'];
+  const RPS = data.metrics.http_reqs.values["rate"];
+
+
   return {
-    "k6-sprint-1-summary.txt": `Results: ${JSON.stringify(data)}`
+    "k6-sprint-1-summary.txt": `
+    These are the Sprint 1 k6 test results:
+
+    The HTTP P(50) REQ DURATION is: ${p50}
+    The HTTP P(90) REQ DURATION is: ${p90}
+    The HTTP P(95) REQ DURATION is: ${p95}
+    The Rate of Requests per Second was: ${RPS}
+    `
   };
 }
