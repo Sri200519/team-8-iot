@@ -72,8 +72,6 @@ services:
       - DATABASE_URL=postgres://user:pass@ingestion-db:5432/ingestion-db
       - REDIS_URL=redis://redis:6379
       - SERVICE_NAME=ingestion-service
-    ports:
-      - "3001:3001"
     networks:
       - team-net
     healthcheck:
@@ -118,8 +116,6 @@ services:
       - DATABASE_URL=postgres://user:pass@readings:5432/readings-db
       - REDIS_URL=redis://redis:6379
       - SERVICE_NAME=dashboard-api
-    ports:
-      - "3000:3000"
     networks:
       - team-net
     healthcheck:
@@ -304,8 +300,6 @@ services:
       dockerfile: sensor-registry/Dockerfile
     container_name: sensor-registry-service
     restart: unless-stopped
-    ports:
-      - "3003:3000"
     networks:
       - team-net
     environment:
@@ -331,8 +325,6 @@ services:
       dockerfile: alert-service/Dockerfile
     container_name: alert-service
     restart: unless-stopped
-    ports:
-      - "3004:3000"
     networks:
       - team-net
     environment:
