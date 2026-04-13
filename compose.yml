@@ -256,6 +256,54 @@ services:
   #     timeout: 3s
   #     retries: 5
 
+  # ── Sensor Registry Service ─────────────────────────────────────────────
+  sensor-registry-service:
+    build: ./sensor-registry
+    container_name: sensor-registry-service
+    restart: unless-stopped
+    ports:
+      - "3003:3000"
+    networks:
+      - team-net
+    environment:
+      - DATABASE_URL=postgres://user:pass@sensor-registry:5432/sensor-registry-db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      sensor-registry:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Alert Service ───────────────────────────────────────────────────────
+  alert-service:
+    build: ./alert-service
+    container_name: alert-service
+    restart: unless-stopped
+    ports:
+      - "3004:3000"
+    networks:
+      - team-net
+    environment:
+      - DATABASE_URL=postgres://user:pass@alert:5432/alert-db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      alert:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 # ── Named volumes ──────────────────────────────────────────────────────────────
 # Declare a volume for each database here, e.g.:
 #
