@@ -48,9 +48,9 @@ services:
       - team-net
     environment:
       - TERM=xterm-256color
-# Holmes has no ports — access it via: docker compose exec holmes bash
+  # Holmes has no ports — access it via: docker compose exec holmes bash
 
-# ── Ingestion Service ──────────────────────────────────────────────────────
+  # ── Ingestion Service ──────────────────────────────────────────────────────
   ingestion:
     build: ./ingestion
     container_name: ingestion-service
@@ -67,7 +67,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -92,7 +92,7 @@ services:
       timeout: 3s
       retries: 5
 
-# ── Dashboard API ──────────────────────────────────────────────────────
+  # ── Dashboard API ──────────────────────────────────────────────────────
   dashboard-api:
     build: ./dashboard-api
     container_name: dashboard-api
@@ -107,14 +107,13 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
 
-
-# ── Readings Database ──────────────────────────────────────────────────────
+  # ── Readings Database ──────────────────────────────────────────────────────
   readings:
     image: postgres:16
     container_name: readings
@@ -128,12 +127,12 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d readings-db"]
+      test: [ "CMD-SHELL", "pg_isready -U user -d readings-db" ]
       interval: 5s
       timeout: 3s
       retries: 5
 
-# ── Sensor Registry Database ──────────────────────────────────────────────────────
+  # ── Sensor Registry Database ──────────────────────────────────────────────────────
   sensor-registry:
     image: postgres:16
     container_name: sensor-registry
@@ -147,12 +146,12 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d sensor-registry-db"]
+      test: [ "CMD-SHELL", "pg_isready -U user -d sensor-registry-db" ]
       interval: 5s
       timeout: 3s
       retries: 5
 
-# ── Alert Database ──────────────────────────────────────────────────────
+  # ── Alert Database ──────────────────────────────────────────────────────
   alert:
     image: postgres:16
     container_name: alert
@@ -166,12 +165,12 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d alert-db"]
+      test: [ "CMD-SHELL", "pg_isready -U user -d alert-db" ]
       interval: 5s
       timeout: 3s
       retries: 5
 
-# ── Report Database ──────────────────────────────────────────────────────
+  # ── Report Database ──────────────────────────────────────────────────────
   report:
     image: postgres:16
     container_name: report
@@ -185,12 +184,12 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d report-db"]
+      test: [ "CMD-SHELL", "pg_isready -U user -d report-db" ]
       interval: 5s
       timeout: 3s
       retries: 5
 
-# ── Device Database ──────────────────────────────────────────────────────
+  # ── Device Database ──────────────────────────────────────────────────────
   device:
     image: postgres:16
     container_name: device
@@ -204,7 +203,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d device-db"]
+      test: [ "CMD-SHELL", "pg_isready -U user -d device-db" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -216,7 +215,7 @@ services:
     networks:
       - team-net
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -300,7 +299,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -324,7 +323,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -339,3 +338,4 @@ volumes:
   alert-data:
   report-data:
   device-data:
+  ingestion-data:
