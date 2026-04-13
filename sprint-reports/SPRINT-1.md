@@ -55,20 +55,27 @@ Script: `k6/sprint-1.js`
 Run: `docker compose exec holmes k6 run /workspace/k6/sprint-1.js`
 
 ```
-[Paste the k6 summary output here]
+    These are the Sprint 1 k6 test results:
+
+    The HTTP P(50) REQ DURATION is: 0.494083
+    The HTTP P(95) REQ DURATION is: 0.7096524999999999
+    The HTTP P(99) REQ DURATION is: 0.7652341344888210
+    The Rate of Requests per Second was: 28.705596288201683
 ```
 
 | Metric             | Value |
 | ------------------ | ----- |
-| p50 response time  |       |
-| p95 response time  |       |
-| p99 response time  |       |
-| Requests/sec (avg) |       |
-| Error rate         |       |
+| p50 response time  | 0.494083  |
+| p95 response time  | 0.7096524999999999    |
+| p99 response time  | 0.7652341344888210    |
+| Requests/sec (avg) | 28.705596288201683   |
+| Error rate         | 0 |
 
 These numbers are your baseline. Sprint 2 caching should improve them measurably.
 
 ---
+
+Currently, the response times are so low across the board from p50 to p99 because we have yet to introduce expensive operations to our endpoints; currently, our sensor-registry GET endpoint serves only to return mock data, which explains the rapid request per second rate.
 
 ## Blockers and Lessons Learned
 
