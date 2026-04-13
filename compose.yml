@@ -56,7 +56,8 @@ services:
     container_name: ingestion-service
     restart: unless-stopped
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     ports:
       - "3001:3001"
     networks:
@@ -74,8 +75,10 @@ services:
     container_name: dashboard-api
     restart: unless-stopped
     depends_on:
-      - readings
-      - redis
+      readings:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "3000:3000"
     networks:
