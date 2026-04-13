@@ -36,6 +36,12 @@ app.post('/dashboard', async (req, res) => {
 
     const reading_id = randomUUID();
     try {
+        // Synchronous service call:
+        const sensorCheckRes = await fetch(`http://sensor-registry-service:3000/sensors/${sensor_id}`);
+        if (!sensorCheckRes.ok) {
+            return res.status(400).json({ error: 'Validation failed: Unknown sensor_id' });
+        }
+
         await pool.query(
             `INSERT INTO sensor_readings (reading_id, timestamp, sensor_id, temperature, pressure, humidity)
             VALUES ($1, $2, $3, $4, $5, $6)`,
