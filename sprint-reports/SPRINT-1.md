@@ -21,10 +21,14 @@ We have ensured that you can start up all services, workers, and databases with 
 
 | Team Member | What They Delivered                                     | Key Commits            |
 | ----------- | ------------------------------------------------------- | ---------------------- |
-| [Name]      | [e.g. order-service with DB schema, health endpoint]    | [short SHA or PR link] |
-| [Name]      | [e.g. restaurant-service, synchronous call integration] |                        |
-| [Name]      | [e.g. compose.yml wiring, k6 baseline script]           |                        |
-
+| Zaeem Chaudhary      | `Formulated universal structure for /health endpoints, reducing redundancy` |https://github.com/Sri200519/team-8-iot/pull/19|
+| Srikar Kopparapu      | `Sensory Registry, Alert, Ingestion, and Device DB implementations, created GET endpoint for ingestion service sensor data, synchronous service-to-service HTTP call, added healthcheck dependencies to compose.yml, fixed many bugs`               | https://github.com/Sri200519/team-8-iot/pull/14, https://github.com/Sri200519/team-8-iot/pull/6, https://github.com/Sri200519/team-8-iot/pull/17, https://github.com/Sri200519/team-8-iot/pull/21|
+| Eric Gu      | `Established Ingestion and Dashboard API services, as well as development of compose.yml` | https://github.com/Sri200519/team-8-iot/pull/8  |
+| Justin Manoj   | `Merged commits into dev`               |            |
+| Sean Young      | `Established Sensory Registry and Alert Services, created respective health/ endpoints, added services into compose.yml `| https://github.com/Sri200519/team-8-iot/pull/9|
+| Nam Pham      | `Developed POST Request for sensor data for Dashboard Service, handling input validation`           | https://github.com/Sri200519/team-8-iot/pull/10    |
+| William Hammond      | `Alert and Report DB implementations, `               |  https://github.com/Sri200519/team-8-iot/pull/6      |
+| Nathan Chen      | `k6 implementation, Writeup for Sprint Plan 1, Sprint 1 Report, `  |  https://github.com/Sri200519/team-8-iot/pull/7, https://github.com/Sri200519/team-8-iot/pull/15 |
 Verify with:
 
 ```bash
