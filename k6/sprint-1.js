@@ -18,13 +18,14 @@ const errorRate = new Rate("errors");
 // ── Configuration ─────────────────────────────────────────────────────────────
 // Update this URL to point to your main read endpoint.
 // From inside the holmes container, use the service name (not localhost).
-const TARGET_URL = "http://dashboard-api:3000/dashboard";
+const TARGET_URL = "http://sensor-registry-service:3000/sensors/sensor-1";
 
 export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(95)', 'p(99)'],
   stages: [
     { duration: "30s", target: 20 }, // ramp up to 20 VUs
     { duration: "30s", target: 20 }, // sustain
-    { duration: "10s", target: 0  }, // ramp down
+    { duration: "10s", target: 0 }, // ramp down
   ],
   thresholds: {
     http_req_duration: ["p(95)<500"], // 95% of requests under 500ms
