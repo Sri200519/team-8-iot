@@ -1,0 +1,8 @@
+
+    These are the Sprint 1 k6 test results:
+
+    The HTTP P(50) REQ DURATION is: 0.6117735
+    The HTTP P(95) REQ DURATION is: 0.8523503499999998
+    The HTTP P(99) REQ DURATION is: 1.1187116699999995
+    The Rate of Requests per Second was: 28.69024709417929
+    
