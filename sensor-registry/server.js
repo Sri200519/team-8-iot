@@ -33,6 +33,7 @@ app.get('/health', async (_req, res) => {
 app.get('/sensors/:id', async (req, res) => {
   const { id } = req.params
   res.json({
+    status: 200,
     sensor_id: id,
     location: 'lab',
     threshold: 50,
