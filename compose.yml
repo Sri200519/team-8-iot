@@ -343,6 +343,32 @@ services:
       retries: 3
       start_period: 15s
 
+# ── Anomaly Detection Worker ───────────────────────────────────────────────
+  anomaly-worker:
+    build:
+      context: .
+      dockerfile: anomaly-worker/Dockerfile
+    container_name: anomaly-worker
+    restart: unless-stopped
+    networks:
+      - team-net
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SENSOR_REGISTRY_URL=http://sensor-registry-service:3000
+      - QUEUE_KEY=sensor:readings:queue
+      - PORT=3002
+    depends_on:
+      redis:
+        condition: service_healthy
+      sensor-registry-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3002/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 # ── Named volumes ──────────────────────────────────────────────────────────────
 # Declare a volume for each database here, e.g.:
 #
