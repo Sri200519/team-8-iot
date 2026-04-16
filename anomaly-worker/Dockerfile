@@ -2,10 +2,10 @@ FROM node:lts-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY anomaly-worker/package*.json ./
 RUN npm install --production
 
-COPY . .
+COPY anomaly-worker/ .
 
 EXPOSE 3002
 
