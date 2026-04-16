@@ -9,4 +9,4 @@ COPY anomaly-worker/ .
 
 EXPOSE 3002
 
-CMD ["node", "index.js"]
+CMD ["node", "server.js"]
