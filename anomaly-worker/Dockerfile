@@ -2,6 +2,8 @@ FROM node:lts-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache curl
+
 COPY anomaly-worker/package*.json ./
 RUN npm install --production
 
