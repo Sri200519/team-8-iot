@@ -27,6 +27,34 @@ app.get('/health', async (_req, res) => {
   res.status(statusCode).json(body)
 })
 
+// GET method to get the latest readings for specific sensor id
+// First reads the cache, if not in cache, reads from database and caches result
+app.get('/latest-readings/:sensor_id', async (req, res) => {
+  const { sensor_id } = req.params;
+  const cacheKey = `latest-reading:${sensor_id}`
+
+  const cached = await redisClient.get(cacheKey);
+  if (cached) {
+    return res.json(JSON.parse(cached));
+  }
+
+  const result = await pool.query(
+    `SELECT * FROM sensor_readings
+    WHERE sensor_id = $1
+    ORDER BY timestamp DESC
+    LIMIT 1;`,
+    [sensor_id]
+  );
+
+  const latest = result.rows[0];
+  if (!latest) {
+    return res.status(404).json({ message: 'No readings found.'})
+  }
+
+  await redisClient.setEx(cacheKey, 60, JSON.stringify(latest));
+  return res.json(latest);
+})
+
 app.post('/dashboard', async (req, res) => {
   const { sensor_id, timestamp, temperature, pressure, humidity } = req.body
 
