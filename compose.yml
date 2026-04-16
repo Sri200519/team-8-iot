@@ -343,6 +343,30 @@ services:
       retries: 3
       start_period: 15s
 
+  # ── Device Management Service ───────────────────────────────────────────
+  device-management-service:
+    build:
+      context: .
+      dockerfile: device-management/Dockerfile
+    container_name: device-management-service
+    restart: unless-stopped
+    networks:
+      - team-net
+    environment:
+      - DATABASE_URL=postgres://user:pass@device:5432/device-db
+      - REDIS_URL=redis://redis:6379
+      - SERVICE_NAME=device-management-service
+    depends_on:
+      device:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 # ── Named volumes ──────────────────────────────────────────────────────────────
 # Declare a volume for each database here, e.g.:
 #
