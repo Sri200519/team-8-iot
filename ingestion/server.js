@@ -1,5 +1,6 @@
 import express from 'express'
 import pkg from 'pg'
+import { randomUUID } from 'crypto'
 import { createClient } from 'redis'
 import { runHealthChecks } from './lib/health.js'
 
@@ -27,6 +28,44 @@ app.get('/health', async (_req, res) => {
   res.status(statusCode).json(body)
 })
 
+app.post('/sensor', async (req, res) => {
+  const { sensor_id, timestamp, temperature, pressure, humidity } = req.body
+
+  // missing fields check
+  if(!sensor_id || !timestamp || !temperature || !pressure || !humidity) {
+    return res.status(400).json({ error: 'Missing required fields'});
+  }
+
+  // idempotency check
+  const claimed = await redisClient.set(`idem_key:${sensor_id}:${timestamp}`, "1", {
+      NX: true,
+  });
+
+  if(!claimed) {
+    return res.status(200).json({status: 'duplicate-skipped'});
+  }
+
+  // publishing reading to redis subscribers
+   const reading_id = randomUUID();
+
+   const sensor_reading = {
+    reading_id,
+    sensor_id,
+    timestamp,
+    temperature,
+    pressure,
+    humidity
+  }
+
+  try {
+    redisClient.publish("readings:registered", JSON.stringify(sensor_reading))
+
+    return res.status(202).json({status: 'success', ...sensor_reading})
+  } catch(e) {
+    return res.status(500).json({error: 'Error occured when publishing reading'})
+  }
+});
+
 app.get('/data', async (req, res) => {
   const { sensor_id } = req.query
   if (!sensor_id) {
@@ -46,6 +85,23 @@ app.get('/data', async (req, res) => {
 
 async function main() {
   await redisClient.connect().catch(() => { })
+
+   try {
+    await pool.query(`
+      CREATE TABLE sensor_readings (
+          reading_id     UUID PRIMARY KEY,
+          timestamp      TIMESTAMPTZ NOT NULL,
+          sensor_id      VARCHAR(64) NOT NULL,
+          temperature    DOUBLE PRECISION,
+          pressure       DOUBLE PRECISION,
+          humidity       DOUBLE PRECISION
+      );
+    `);
+    console.log('sensor_readings table created');
+  } catch (e) {
+    console.error('Failed to initialize sensor_readings table:', e);
+  }
+
   app.listen(port, () => {
     console.log(`Ingestion Service listening on port ${port}`)
   })
