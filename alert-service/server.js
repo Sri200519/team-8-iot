@@ -20,6 +20,8 @@ const redisClient = createClient({
 })
 redisClient.on('error', () => {})
 
+const sub = redisClient.duplicate();
+
 app.get('/health', async (_req, res) => {
   const { statusCode, body } = await runHealthChecks({
     serviceName: process.env.SERVICE_NAME,
@@ -31,11 +33,26 @@ app.get('/health', async (_req, res) => {
 })
 
 app.get('/alerts', async (_req, res) => {
-  res.json([])
+  const result = await db.query('select * from alerts order by timestamp desc limit 50');
+  res.json(result.rows)
 })
 
 async function main() {
   await redisClient.connect().catch(() => {})
+  await sub.connect();
+  await sub.subscribe('alerts', async(message) => {
+    const alert = JSON.parse(message);
+    await db.query('insert into alerts(sensor_id, message, timestamp, reading_value, alert_type) values ($1, $2, $3, $4, $5)',
+      [
+        alert.sensor_id,
+        alert.message,
+        alert.timestamp,
+        alert.reading_value,
+        alert.alert_type
+      ]
+    );
+    console.log('Alert received:', alert);
+  });
   app.listen(PORT, () => {
     console.log(`Alert Service running on port ${PORT}`)
   })
