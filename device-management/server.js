@@ -12,6 +12,7 @@ const redisClient = createClient({ url: process.env.REDIS_URL });
 redisClient.on('error', (err) => {
   console.error('Redis Client Error', err);
 });
+const DEVICE_EVENTS_QUEUE_KEY = process.env.DEVICE_EVENTS_QUEUE_KEY || 'sensor:readings:queue';
 
 const app = express();
 const port = 3000;
@@ -62,8 +63,17 @@ app.post('/devices/register', async (req, res) => {
     }
 
     if (isNew) {
-      // Publish the new device registration to Redis Pub/Sub
+      const queueMessage = {
+        sensor_id: row.sensor_id || row.device_id,
+        device_id: row.device_id,
+        event: 'device_registered',
+        status: row.status,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Keep pub/sub for existing consumers, plus push to queue for worker pipeline demo.
       await redisClient.publish('devices:registered', JSON.stringify(row));
+      await redisClient.rPush(DEVICE_EVENTS_QUEUE_KEY, JSON.stringify(queueMessage));
       return res.status(201).json(row);
     } else {
       // Idempotent return of the original row (200 OK)
