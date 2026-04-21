@@ -43,3 +43,25 @@ CREATE TABLE devices (
   }
 }
 ```
+
+## Maintenance Schedules Table
+
+| Column Name | Data Type   | Constraints / Notes                                      |
+| ----------- | ----------- | -------------------------------------------------------- |
+| schedule_id | SERIAL      | PRIMARY KEY                                              |
+| device_id   | VARCHAR(64) | REFERENCES devices(device_id) ON DELETE CASCADE          |
+| start_time  | TIMESTAMPTZ | NOT NULL, when maintenance begins                        |
+| end_time    | TIMESTAMPTZ | NOT NULL, when maintenance ends                          |
+| reason      | TEXT        | Optional description of maintenance reason               |
+| created_at  | TIMESTAMPTZ | DEFAULT CURRENT_TIMESTAMP                                |
+
+```sql
+CREATE TABLE maintenance_schedules (
+    schedule_id SERIAL PRIMARY KEY,
+    device_id VARCHAR(64) REFERENCES devices(device_id) ON DELETE CASCADE,
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+```
