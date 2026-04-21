@@ -394,6 +394,40 @@ services:
       retries: 3
       start_period: 15s
 
+  # ── Report Generation Worker ───────────────────────────────────────────────
+  report-gen-worker:
+    build:
+      context: .
+      dockerfile: report-gen-worker/Dockerfile
+    container_name: report-gen-worker
+    restart: unless-stopped
+    networks:
+      - team-net
+    environment:
+      - SERVICE_NAME=report-gen-worker
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - READINGS_DATABASE_URL=postgres://user:pass@readings:5432/readings-db
+      - REPORT_DATABASE_URL=postgres://user:pass@report:5432/report-db
+      - REPORT_GEN_QUEUE_KEY=report-gen:queue
+      - REPORT_GEN_DLQ_KEY=report-gen:dlq
+      - REPORT_READY_CHANNEL=report:ready
+    depends_on:
+      redis:
+        condition: service_healthy
+      readings:
+        condition: service_healthy
+      report:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:3000/health >/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - "3003:3000"
+
 # ── Named volumes ──────────────────────────────────────────────────────────────
 # Declare a volume for each database here, e.g.:
 #
