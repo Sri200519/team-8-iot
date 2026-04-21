@@ -79,6 +79,16 @@ app.post('/devices/register', async (req, res) => {
         ...row
       });
     } else {
+      const queueMessage = {
+        sensor_id: row.sensor_id || row.device_id,
+        device_id: row.device_id,
+        event: 'device_registered',
+        status: row.status,
+        timestamp: new Date().toISOString(),
+        duplicate: true,
+      };
+      await redisClient.rPush(DEVICE_EVENTS_QUEUE_KEY, JSON.stringify(queueMessage));
+
       // Idempotent return of the original row (200 OK)
       return res.status(200).json({
         duplicate: "true",
