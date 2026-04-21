@@ -1,0 +1,8 @@
+
+    These are the Sprint 2 Async k6 test results:
+
+    The HTTP P(50) REQ DURATION is: 2.95208
+    The HTTP P(95) REQ DURATION is: 4.291033
+    The HTTP P(99) REQ DURATION is: 6.617173
+    The Rate of Requests per Second was: 30.543248527062985
+    
