@@ -95,6 +95,63 @@ app.post('/devices/register', async (req, res) => {
   }
 });
 
+app.get('/devices/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const selectResult = await pool.query(
+      `SELECT * FROM devices WHERE device_id = $1 OR sensor_id = $1`,
+      [id]
+    );
+
+    if (selectResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    return res.status(200).json(selectResult.rows[0]);
+  } catch (error) {
+    console.error('Error fetching device:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/devices/:id/firmware', async (req, res) => {
+  const { id } = req.params;
+  const { version } = req.body;
+
+  if (!version) {
+    return res.status(400).json({ error: 'Missing required field: version' });
+  }
+
+  try {
+    const updateResult = await pool.query(
+      `UPDATE devices SET version = $1 WHERE device_id = $2 OR sensor_id = $2 RETURNING *`,
+      [version, id]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    const row = updateResult.rows[0];
+
+    const queueMessage = {
+      sensor_id: row.sensor_id || row.device_id,
+      device_id: row.device_id,
+      event: 'firmware_updated',
+      version: row.version,
+      timestamp: new Date().toISOString(),
+    };
+
+    await redisClient.publish('devices:firmware_updated', JSON.stringify(row));
+    await redisClient.rPush(DEVICE_EVENTS_QUEUE_KEY, JSON.stringify(queueMessage));
+
+    return res.status(200).json(row);
+  } catch (error) {
+    console.error('Error updating firmware:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 async function main() {
   await redisClient.connect().catch((e) => console.error('Redis connect error', e));
 
