@@ -2,8 +2,39 @@
 //
 // Run from inside the holmes container:
 //   docker compose exec holmes bash
+//   psql postgres://user:pass@sensor-registry:5432/sensor-registry-db
+/*   CREATE TABLE IF NOT EXISTS sensors (
+       sensor_id TEXT PRIMARY KEY,
+       location TEXT,
+       sensor_type TEXT,
+       min_temp DOUBLE PRECISION,
+       max_temp DOUBLE PRECISION,
+       min_humidity DOUBLE PRECISION,
+       max_humidity DOUBLE PRECISION,
+       min_pressure DOUBLE PRECISION,
+       max_pressure DOUBLE PRECISION
+     );
+     INSERT INTO sensors (
+       sensor_id,
+       location,
+       sensor_type,
+       min_temp,
+       max_temp,
+       min_humidity,
+       max_humidity,
+       min_pressure,
+       max_pressure
+     ) VALUES (
+       'sensor-1',
+       'lab-1',
+       'environmental',
+       10, 40,
+       20, 80,
+       950, 1050
+     );
+*/
+//   \q
 //   k6 run /workspace/k6/sprint-2-cache.js
-//
 // Or from your host machine if k6 is installed:
 //   k6 run k6/sprint-2-cache.js
 //
@@ -42,7 +73,7 @@ export default function () {
   });
 
   errorRate.add(!ok);
-  sleep(0.5);
+  sleep(0.1);
 }
 
 export function handleSummary(data) {

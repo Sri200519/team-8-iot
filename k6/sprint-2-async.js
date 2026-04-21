@@ -18,7 +18,7 @@ const errorRate = new Rate("errors");
 // ── Configuration ─────────────────────────────────────────────────────────────
 // Update this URL to point to your main read endpoint.
 // From inside the holmes container, use the service name (not localhost).
-const TARGET_URL = "http://ingestion-service:3000/readings";
+const TARGET_URL = "http://ingestion-service:3001/sensor";
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(95)', 'p(99)'],
@@ -35,7 +35,7 @@ export const options = {
 
 export default function () {
   const payload = JSON.stringify({
-    sensorId: `sensor-${Math.floor(Math.random() * 10)}`,
+    sensor_id: `sensor-${Math.floor(Math.random() * 10)}`,
     temperature: Math.random() * 100,
     humidity: Math.random() * 100,
     pressure: 950 + Math.random() * 100,
@@ -51,7 +51,7 @@ export default function () {
   const res = http.post(TARGET_URL, payload, params);
 
   const ok = check(res, {
-    "status is 200": (r) => r.status === 200,
+    "status is ok": (r) => r.status === 202 || r.status === 200,
     "response time < 500ms": (r) => r.timings.duration < 500,
   });
 
@@ -68,7 +68,7 @@ export function handleSummary(data) {
 
   return {
     "k6-sprint-2-async-summary.txt": `
-    These are the Sprint 2 Cache k6 test results:
+    These are the Sprint 2 Async k6 test results:
 
     The HTTP P(50) REQ DURATION is: ${p50}
     The HTTP P(95) REQ DURATION is: ${p95}
