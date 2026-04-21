@@ -1,0 +1,8 @@
+
+    These are the Sprint 2 Cache k6 test results:
+
+    The HTTP P(50) REQ DURATION is: 3.0772135
+    The HTTP P(95) REQ DURATION is: 7.844415700000002
+    The HTTP P(99) REQ DURATION is: 16.984987299999975
+    The Rate of Requests per Second was: 152.02012587874376
+    
