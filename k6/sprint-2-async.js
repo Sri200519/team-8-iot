@@ -10,6 +10,7 @@
 // Replace TARGET_URL with your main read endpoint.
 
 import http from "k6/http";
+import exec from 'k6/execution';
 import { check, sleep } from "k6";
 import { Rate } from "k6/metrics";
 
@@ -18,7 +19,7 @@ const errorRate = new Rate("errors");
 // ── Configuration ─────────────────────────────────────────────────────────────
 // Update this URL to point to your main read endpoint.
 // From inside the holmes container, use the service name (not localhost).
-const TARGET_URL = "http://ingestion-service:3001/sensor";
+const TARGET_URL = "http://device-management-service:3000/devices/register";
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(95)', 'p(99)'],
@@ -34,12 +35,14 @@ export const options = {
 };
 
 export default function () {
+  const currentExec = exec.scenario.iterationInTest;
+  const uniqueId = crypto.randomUUID();
+
   const payload = JSON.stringify({
-    sensor_id: `sensor-${Math.floor(Math.random() * 10)}`,
-    temperature: Math.random() * 100,
-    humidity: Math.random() * 100,
-    pressure: 950 + Math.random() * 100,
-    timestamp: new Date().toISOString()
+    deviceId: `device-${currentExec}-${uniqueId}`,
+    sensorId: `sensor-${currentExec}-${uniqueId}`,
+    status: "online",
+    idempotencyKey: `key-${currentExec}-${uniqueId}`
   });
 
   const params = {
@@ -51,7 +54,7 @@ export default function () {
   const res = http.post(TARGET_URL, payload, params);
 
   const ok = check(res, {
-    "status is ok": (r) => r.status === 202 || r.status === 200,
+    "status is ok": (r) => r.status === 201 || r.status === 200,
     "response time < 500ms": (r) => r.timings.duration < 500,
   });
 

@@ -11,6 +11,8 @@ let jobsProcessed = 0;
 const queueClient = redis.createClient({ url: process.env.REDIS_URL });
 const healthClient = redis.createClient({ url: process.env.REDIS_URL });
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // ── Health endpoint ───────────────────────────────────────────────────────────
 const app = express();
 
@@ -55,12 +57,15 @@ async function workerLoop() {
     try {
       const result = await queueClient.blPop(QUEUE_KEY, 5);
       if (result) {
+        const currDepth = await queueClient.lLen(QUEUE_KEY);
         const reading = JSON.parse(result.element);
         lastJobAt = new Date().toISOString();
         jobsProcessed++;
+        await sleep(200);
         console.log(JSON.stringify({
           event: 'job_processed',
           sensor_id: reading.sensor_id,
+          depth: currDepth,
           jobs_processed: jobsProcessed,
           timestamp: lastJobAt,
         }));

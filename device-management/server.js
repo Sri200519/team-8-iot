@@ -74,10 +74,16 @@ app.post('/devices/register', async (req, res) => {
       // Keep pub/sub for existing consumers, plus push to queue for worker pipeline demo.
       await redisClient.publish('devices:registered', JSON.stringify(row));
       await redisClient.rPush(DEVICE_EVENTS_QUEUE_KEY, JSON.stringify(queueMessage));
-      return res.status(201).json(row);
+      return res.status(201).json({
+        duplicate: "false",
+        ...row
+      });
     } else {
       // Idempotent return of the original row (200 OK)
-      return res.status(200).json(row);
+      return res.status(200).json({
+        duplicate: "true",
+        ...row
+      });
     }
   } catch (error) {
     console.error('Error registering device:', error);
