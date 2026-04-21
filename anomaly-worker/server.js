@@ -26,7 +26,7 @@ app.get('/health', async (req, res) => {
     ]);
 
     res.status(200).json({
-      status: 'healthy',
+      status: dlqDepth > 0 ? 'degraded' : 'healthy',
       redis: 'ok',
       depth,
       dlq_depth: dlqDepth,
@@ -50,6 +50,41 @@ app.listen(PORT, () => {
 });
 
 // ── Worker loop ───────────────────────────────────────────────────────────────
+async function processReading(raw) {
+  let reading;
+
+  // Poison pill — invalid JSON
+  try {
+    reading = JSON.parse(raw);
+  } catch (err) {
+    console.log(JSON.stringify({ event: 'poison_pill', reason: 'invalid JSON', raw, timestamp: new Date().toISOString() }));
+    await queueClient.rPush(DLQ_KEY, raw);
+    return;
+  }
+
+  // Poison pill — missing required fields
+  const required = ['sensor_id', 'temperature', 'humidity', 'pressure', 'timestamp'];
+  const missing = required.filter(f => reading[f] == null);
+  if (missing.length > 0) {
+    console.log(JSON.stringify({ event: 'poison_pill', reason: 'missing fields', missing, raw, timestamp: new Date().toISOString() }));
+    await queueClient.rPush(DLQ_KEY, raw);
+    return;
+  }
+
+  // Valid message — process it
+  const currDepth = await queueClient.lLen(QUEUE_KEY);
+  lastJobAt = new Date().toISOString();
+  jobsProcessed++;
+  await sleep(200);
+  console.log(JSON.stringify({
+    event: 'job_processed',
+    sensor_id: reading.sensor_id,
+    depth: currDepth,
+    jobs_processed: jobsProcessed,
+    timestamp: lastJobAt,
+  }));
+}
+
 async function workerLoop() {
   console.log(JSON.stringify({ event: 'worker_started', queue: QUEUE_KEY, timestamp: new Date().toISOString() }));
 
@@ -57,18 +92,7 @@ async function workerLoop() {
     try {
       const result = await queueClient.blPop(QUEUE_KEY, 5);
       if (result) {
-        const currDepth = await queueClient.lLen(QUEUE_KEY);
-        const reading = JSON.parse(result.element);
-        lastJobAt = new Date().toISOString();
-        jobsProcessed++;
-        await sleep(200);
-        console.log(JSON.stringify({
-          event: 'job_processed',
-          sensor_id: reading.sensor_id,
-          depth: currDepth,
-          jobs_processed: jobsProcessed,
-          timestamp: lastJobAt,
-        }));
+        await processReading(result.element);
       }
     } catch (err) {
       console.log(JSON.stringify({ event: 'worker_error', error: err.message, timestamp: new Date().toISOString() }));
