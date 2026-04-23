@@ -52,7 +52,7 @@ export default function () {
   const res = http.post(`${BASE_URL}/sensor`, payload, params)
 
   const ok = check(res, {
-    'status is 202 or 400': (r) => r.status === 202 || r.status === 400,
+    'status is 201 or 202': (r) => r.status === 201 || r.status === 202,
   })
 
   errorRate.add(!ok)
