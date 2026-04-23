@@ -72,15 +72,22 @@ async function processReading(raw) {
     return;
   }
 
-  // Valid message — process it
-  const currDepth = await queueClient.lLen(QUEUE_KEY);
-
-  // Look up thresholds from Sensor Registry
+  // Threshold lookup — check Redis cache first
+  const cacheKey = `sensor:thresholds:${reading.sensor_id}`;
   let thresholds;
+
   try {
-    const response = await fetch(`${process.env.SENSOR_REGISTRY_URL}/sensors/${reading.sensor_id}`);
-    if (!response.ok) throw new Error(`Registry returned ${response.status}`);
-    thresholds = await response.json();
+    const cached = await queueClient.get(cacheKey);
+    if (cached) {
+      thresholds = JSON.parse(cached);
+      console.log(JSON.stringify({ event: 'cache_hit', sensor_id: reading.sensor_id, timestamp: new Date().toISOString() }));
+    } else {
+      const response = await fetch(`${process.env.SENSOR_REGISTRY_URL}/sensors/${reading.sensor_id}`);
+      if (!response.ok) throw new Error(`Registry returned ${response.status}`);
+      thresholds = await response.json();
+      await queueClient.set(cacheKey, JSON.stringify(thresholds), { EX: 60 });
+      console.log(JSON.stringify({ event: 'cache_miss', sensor_id: reading.sensor_id, timestamp: new Date().toISOString() }));
+    }
   } catch (err) {
     console.log(JSON.stringify({ event: 'poison_pill', reason: 'sensor not found in registry', sensor_id: reading.sensor_id, timestamp: new Date().toISOString() }));
     await queueClient.rPush(DLQ_KEY, raw);
@@ -115,6 +122,7 @@ async function processReading(raw) {
     console.log(JSON.stringify({ event: 'alert_published', ...alert, timestamp: new Date().toISOString() }));
   }
 
+  const currDepth = await queueClient.lLen(QUEUE_KEY);
   lastJobAt = new Date().toISOString();
   jobsProcessed++;
   console.log(JSON.stringify({
@@ -125,20 +133,20 @@ async function processReading(raw) {
     jobs_processed: jobsProcessed,
     timestamp: lastJobAt,
   }));
+}
 
-  async function workerLoop() {
-    console.log(JSON.stringify({ event: 'worker_started', queue: QUEUE_KEY, timestamp: new Date().toISOString() }));
+async function workerLoop() {
+  console.log(JSON.stringify({ event: 'worker_started', queue: QUEUE_KEY, timestamp: new Date().toISOString() }));
 
-    while (true) {
-      try {
-        const result = await queueClient.blPop(QUEUE_KEY, 5);
-        if (result) {
-          await processReading(result.element);
-        }
-      } catch (err) {
-        console.log(JSON.stringify({ event: 'worker_error', error: err.message, timestamp: new Date().toISOString() }));
-        await new Promise(r => setTimeout(r, 1000));
+  while (true) {
+    try {
+      const result = await queueClient.blPop(QUEUE_KEY, 5);
+      if (result) {
+        await processReading(result.element);
       }
+    } catch (err) {
+      console.log(JSON.stringify({ event: 'worker_error', error: err.message, timestamp: new Date().toISOString() }));
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
 }
