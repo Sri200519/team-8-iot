@@ -12,6 +12,8 @@ const pool = new Pool({
 const redisClient = createClient({ url: process.env.REDIS_URL })
 redisClient.on('error', () => { })
 
+const READING_QUEUE_KEY = process.env.QUEUE_KEY || 'sensor:readings:queue';
+
 const app = express()
 const port = 3001
 const startTime = Date.now()
@@ -58,11 +60,11 @@ app.post('/sensor', async (req, res) => {
   }
 
   try {
-    redisClient.publish("readings:registered", JSON.stringify(sensor_reading))
+    await redisClient.rPush(READING_QUEUE_KEY, JSON.stringify(sensor_reading));
 
     return res.status(202).json({status: 'success', ...sensor_reading})
   } catch(e) {
-    return res.status(500).json({error: 'Error occured when publishing reading'})
+    return res.status(500).json({error: 'Error occured when enqueuing reading'})
   }
 });
 
