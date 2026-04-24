@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3004;
 const QUEUE_KEY = process.env.QUEUE_KEY || 'sensor:readings:queue';
+const DLQ_KEY = process.env.STORAGE_DLQ_KEY || `storage:dlq`;
 const BATCH_SIZE = Number(process.env.BATCH_SIZE || 50);
 const BATCH_FLUSH_MS = Number(process.env.BATCH_FLUSH_MS || 2000);
 
@@ -24,13 +25,16 @@ const app = express();
 app.get('/health', async (req, res) => {
   try {
     await redisHealthClient.ping();
-    const depth = await redisHealthClient.lLen(QUEUE_KEY);
+    const [depth, dlqDepth] = await Promise.all([
+      redisHealthClient.lLen(QUEUE_KEY),
+      redisHealthClient.lLen(DLQ_KEY),
+    ]);
     
     res.status(200).json({
       status: 'healthy',
       redis: 'ok',
       depth,
-      dlq_depth: 0,
+      dlq_depth: dlqDepth,
       last_job_at: lastJobAt,
       jobs_processed: jobsProcessed
     });
