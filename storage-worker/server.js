@@ -7,6 +7,7 @@ const QUEUE_KEY = process.env.QUEUE_KEY || 'sensor:readings:queue';
 const DLQ_KEY = process.env.STORAGE_DLQ_KEY || `storage:dlq`;
 const BATCH_SIZE = Number(process.env.BATCH_SIZE || 50);
 const BATCH_FLUSH_MS = Number(process.env.BATCH_FLUSH_MS || 2000);
+const REQUIRED_FIELDS = ['reading_id', 'sensor_id', 'timestamp', 'temperature', 'pressure', 'humidity'];
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -97,13 +98,94 @@ function shouldFlushByTime() {
   return oldestPendingAtMs !== null && Date.now() - oldestPendingAtMs >= BATCH_FLUSH_MS;
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getMissingRequiredFields(payload) {
+  return REQUIRED_FIELDS.filter((field) => payload[field] === undefined || payload[field] === null);
+}
+
+async function sendToDlq({
+  rawMessage,
+  reasonCode,
+  reason,
+  error = null,
+  payload = null,
+  missingFields = [],
+}) {
+  const dlqEntry = {
+    failed_at: new Date().toISOString(),
+    reason_code: reasonCode,
+    reason,
+    queue_key: QUEUE_KEY,
+    missing_fields: missingFields,
+    error,
+    raw_message: rawMessage,
+    payload,
+  };
+
+  await redisQueueClient.rPush(DLQ_KEY, JSON.stringify(dlqEntry));
+
+  console.log(
+    JSON.stringify({
+      event: 'poison_pill_routed',
+      reason_code: reasonCode,
+      reason,
+      missing_fields: missingFields,
+      timestamp: dlqEntry.failed_at,
+    }),
+  );
+}
+
+async function parseAndValidateMessage(rawMessage) {
+  let parsed;
+
+  try {
+    parsed = JSON.parse(rawMessage);
+  } catch (err) {
+    await sendToDlq({
+      rawMessage,
+      reasonCode: 'invalid_json',
+      reason: 'malformed_json',
+      error: err.message,
+    });
+    return null;
+  }
+
+  if (!isPlainObject(parsed)) {
+    await sendToDlq({
+      rawMessage,
+      reasonCode: 'invalid_payload',
+      reason: 'payload_not_object',
+      payload: parsed,
+    });
+    return null;
+  }
+
+  const missingFields = getMissingRequiredFields(parsed);
+  if (missingFields.length > 0) {
+    await sendToDlq({
+      rawMessage,
+      reasonCode: 'invalid_payload',
+      reason: 'missing_required_fields',
+      payload: parsed,
+      missingFields,
+    });
+    return null;
+  }
+
+  return parsed;
+}
+
 async function workerLoop() {
   while (true) {
     try {
       const result = await redisQueueClient.blPop(QUEUE_KEY, 1);
 
       if (result && result.element) {
-        const reading = JSON.parse(result.element);
+        const reading = await parseAndValidateMessage(result.element);
+        if (!reading) continue;
         pendingReadings.push(reading);
         if (oldestPendingAtMs === null) oldestPendingAtMs = Date.now();
       }
