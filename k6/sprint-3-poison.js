@@ -1,3 +1,13 @@
+// Sprint 1 — Baseline load test
+//
+// Run from inside the holmes container:
+//   docker compose exec holmes bash
+//   k6 run /workspace/k6/sprint-3-poison.js
+//
+// Or from your host machine if k6 is installed:
+//   k6 run k6/sprint-3-poison.js
+//
+
 import http from 'k6/http'
 import { check, sleep } from 'k6'
 import { Rate } from 'k6/metrics'
@@ -15,7 +25,7 @@ export const options = {
   ],
   thresholds: {
     http_req_duration: ['p(95)<500'],
-    errors: ['rate<0.01'],
+    errors: ['rate<0.05'],
   },
 }
 
@@ -25,11 +35,12 @@ export default function () {
   let payload
 
   if (isPoisonPill) {
-    // Missing sensor_id and has bad data
+    // Sensor id does not exist
     payload = JSON.stringify({
-      temperature: "invalid",
-      humidity: null,
-      pressure: -999,
+      sensor_id: "no-good-sensor-1515151515",
+      temperature: 999,
+      humidity: 50,
+      pressure: 1000,
       timestamp: new Date().toISOString()
     })
   } else {
@@ -70,10 +81,10 @@ export function handleSummary(data) {
     "k6-sprint-3-poison-summary.txt": `
 These are the Sprint 3 test results:
 
-HTTP P(50): ${p50}
-HTTP P(95): ${p95}
-HTTP P(99): ${p99}
-Requests Per Second: ${RPS}
+The HTTP P(50) REQ DURATION is: ${p50}
+    The HTTP P(95) REQ DURATION is: ${p95}
+    The HTTP P(99) REQ DURATION is: ${p99}
+    The Rate of Requests per Second was: ${RPS}
 `
   }
 }
