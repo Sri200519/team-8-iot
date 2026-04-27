@@ -78,8 +78,14 @@ async function flushBatch() {
     VALUES ${placeholders}
     ON CONFLICT (reading_id) DO NOTHING
   `;
-
-  await pool.query(query, values);
+  try {
+    await pool.query(query, values);
+  } catch (err) {
+    pendingReadings.unshift(...batch);
+    if (oldestPendingAtMs === null) oldestPendingAtMs = Date.now();
+    throw err;
+  }
+  
   jobsProcessed += batch.length;
   lastJobAt = new Date().toISOString();
 
