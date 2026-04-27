@@ -14,6 +14,7 @@ const pool = new Pool({
 
 const redisClient = createClient({ url: process.env.REDIS_URL })
 redisClient.on('error', () => {})
+const REPORT_GEN_QUEUE_KEY = process.env.REPORT_GEN_QUEUE_KEY || 'report-gen:queue'
 
 app.use(express.json())
 
@@ -27,6 +28,142 @@ app.get('/health', async (_req, res) => {
   res.status(statusCode).json(body)
 })
 
+// GET method to get the latest readings for specific sensor id
+// First reads the cache, if not in cache, reads from database and caches result
+app.get('/latest-readings/:sensor_id', async (req, res) => {
+  const { sensor_id } = req.params;
+  const cacheKey = `latest-reading:${sensor_id}`
+
+  const cached = await redisClient.get(cacheKey);
+  if (cached) {
+    console.log("Using cache");
+    return res.json(JSON.parse(cached));
+  }
+
+  const result = await pool.query(
+    `SELECT * FROM sensor_readings
+    WHERE sensor_id = $1
+    ORDER BY timestamp DESC
+    LIMIT 1;`,
+    [sensor_id]
+  );
+
+  const latest = result.rows[0];
+  if (!latest) {
+    return res.status(404).json({ message: 'No readings found.'})
+  }
+
+  await redisClient.setEx(cacheKey, 60, JSON.stringify(latest));
+  console.log("Fetched from database, added to cache");
+  return res.json(latest);
+})
+
+// GET endpoint to Readings DB for Report Generation
+// Example URL: http://dashboard-api:3000/reports?startTime=xxxxxx&endTime=yyyyyyyy
+// startTime & endTime example: 2026-04-23T10:30:00Z - UTC and 2026-04-23T10:30:00-04:00 - EDT
+app.get('/reports', async (req, res) => {
+  try {
+    const { startTime, endTime } = req.query;
+
+    if (!startTime || !endTime) {
+      return res.status(400).json({ error: 'startTime and endTime are required' });
+    }
+
+    // Query average temperature, max temperature, avg pressure, max pressure, avg humidity, and max humidity per sensor
+    const report_per_sensor = await pool.query(
+      `SELECT
+        sensor_id,
+        AVG(temperature) AS avg_temperature,
+        MAX(temperature) AS max_temperature,
+        AVG(pressure) AS avg_pressure,
+        MAX(pressure) AS max_pressure,
+        AVG(humidity) AS avg_humidity,
+        MAX(humidity) AS max_humidity
+      FROM sensor_readings
+      WHERE timestamp >= $1 AND timestamp <= $2
+      GROUP BY sensor_id;`,
+      [startTime, endTime]
+    );
+
+    const report_all_sensors = await pool.query(
+      `SELECT
+        AVG(temperature) AS avg_temperature,
+        MAX(temperature) AS max_temperature,
+        AVG(pressure) AS avg_pressure,
+        MAX(pressure) AS max_pressure,
+        AVG(humidity) AS avg_humidity,
+        MAX(humidity) AS max_humidity
+      FROM sensor_readings
+      WHERE timestamp >= $1 AND timestamp <= $2`,
+      [startTime, endTime]
+    );
+
+    return res.json({
+      perSensor: report_per_sensor.rows,
+      overall: report_all_sensors.rows[0]
+    })
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST endpoint to publish report generation requests for report-gen-worker
+// Example URL: http://dashboard-api:3000/reports/request
+// Body:
+// {
+//   "sensor_id": "sensor-123",
+//   "start_time": "2026-04-23T10:30:00Z",
+//   "end_time": "2026-04-23T11:30:00Z"
+// }
+app.post('/reports/request', async (req, res) => {
+  try {
+    const sensor_id = req.body?.sensor_id ?? req.body?.sensorId
+    const start_time = req.body?.start_time ?? req.body?.startTime
+    const end_time = req.body?.end_time ?? req.body?.endTime
+
+    const missingFields = []
+    if (!sensor_id) missingFields.push('sensor_id')
+    if (!start_time) missingFields.push('start_time')
+    if (!end_time) missingFields.push('end_time')
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        missing: missingFields,
+      })
+    }
+
+    const parsedStart = new Date(start_time)
+    const parsedEnd = new Date(end_time)
+    if (Number.isNaN(parsedStart.getTime()) || Number.isNaN(parsedEnd.getTime())) {
+      return res.status(400).json({ error: 'Invalid start_time or end_time format' })
+    }
+    if (parsedStart.getTime() > parsedEnd.getTime()) {
+      return res.status(400).json({ error: 'start_time must be before or equal to end_time' })
+    }
+
+    const request_id = randomUUID()
+    const reportRequest = {
+      request_id,
+      sensor_id: String(sensor_id),
+      start_time: parsedStart.toISOString(),
+      end_time: parsedEnd.toISOString(),
+    }
+
+    await redisClient.rPush(REPORT_GEN_QUEUE_KEY, JSON.stringify(reportRequest))
+
+    return res.status(202).json({
+      status: 'queued',
+      request_id,
+      queue: REPORT_GEN_QUEUE_KEY,
+      request: reportRequest,
+    })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to queue report request' })
+  }
+})
 app.post('/dashboard', async (req, res) => {
   const { sensor_id, timestamp, temperature, pressure, humidity } = req.body
 
