@@ -90,7 +90,7 @@ async function main() {
 
    try {
     await pool.query(`
-      CREATE TABLE sensor_readings (
+      CREATE TABLE IF NOT EXISTS sensor_readings (
           reading_id     UUID PRIMARY KEY,
           timestamp      TIMESTAMPTZ NOT NULL,
           sensor_id      VARCHAR(64) NOT NULL,
