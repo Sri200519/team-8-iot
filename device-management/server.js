@@ -79,6 +79,16 @@ app.post('/devices/register', async (req, res) => {
         ...row
       });
     } else {
+      const queueMessage = {
+        sensor_id: row.sensor_id || row.device_id,
+        device_id: row.device_id,
+        event: 'device_registered',
+        status: row.status,
+        timestamp: new Date().toISOString(),
+        duplicate: true,
+      };
+      await redisClient.rPush(DEVICE_EVENTS_QUEUE_KEY, JSON.stringify(queueMessage));
+
       // Idempotent return of the original row (200 OK)
       return res.status(200).json({
         duplicate: "true",
@@ -91,6 +101,126 @@ app.post('/devices/register', async (req, res) => {
     if (error.code === '23505') {
        return res.status(409).json({ error: 'A different constraint was violated (e.g., sensor_id already in use)' });
     }
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/devices/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const selectResult = await pool.query(
+      `SELECT * FROM devices WHERE device_id = $1 OR sensor_id = $1`,
+      [id]
+    );
+
+    if (selectResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    const device = selectResult.rows[0];
+
+    const maintenanceResult = await pool.query(
+      `SELECT * FROM maintenance_schedules WHERE device_id = $1 ORDER BY start_time ASC`,
+      [device.device_id]
+    );
+
+    return res.status(200).json({
+      ...device,
+      maintenance_schedules: maintenanceResult.rows
+    });
+  } catch (error) {
+    console.error('Error fetching device:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/devices/:id/maintenance', async (req, res) => {
+  const { id } = req.params;
+  const { startTime, endTime, reason } = req.body;
+
+  if (!startTime || !endTime) {
+    return res.status(400).json({ error: 'Missing required fields: startTime, endTime' });
+  }
+
+  try {
+    // First find the device
+    const deviceResult = await pool.query(
+      `SELECT * FROM devices WHERE device_id = $1 OR sensor_id = $1`,
+      [id]
+    );
+
+    if (deviceResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    const device = deviceResult.rows[0];
+
+    // Insert maintenance schedule
+    const insertResult = await pool.query(
+      `INSERT INTO maintenance_schedules (device_id, start_time, end_time, reason)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [device.device_id, startTime, endTime, reason || null]
+    );
+
+    const schedule = insertResult.rows[0];
+
+    // Check if we need to update the status to maintenance
+    const start = new Date(startTime);
+    const now = new Date();
+
+    if (start <= now && device.status !== 'maintenance') {
+      await pool.query(
+        `UPDATE devices SET status = 'maintenance' WHERE device_id = $1`,
+        [device.device_id]
+      );
+      device.status = 'maintenance';
+    }
+
+    return res.status(201).json({
+      message: 'Maintenance scheduled',
+      device_status: device.status,
+      schedule
+    });
+  } catch (error) {
+    console.error('Error scheduling maintenance:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/devices/:id/firmware', async (req, res) => {
+  const { id } = req.params;
+  const { version } = req.body;
+
+  if (!version) {
+    return res.status(400).json({ error: 'Missing required field: version' });
+  }
+
+  try {
+    const updateResult = await pool.query(
+      `UPDATE devices SET version = $1 WHERE device_id = $2 OR sensor_id = $2 RETURNING *`,
+      [version, id]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    const row = updateResult.rows[0];
+
+    const queueMessage = {
+      sensor_id: row.sensor_id || row.device_id,
+      device_id: row.device_id,
+      event: 'firmware_updated',
+      version: row.version,
+      timestamp: new Date().toISOString(),
+    };
+
+    await redisClient.publish('devices:firmware_updated', JSON.stringify(row));
+    await redisClient.rPush(DEVICE_EVENTS_QUEUE_KEY, JSON.stringify(queueMessage));
+
+    return res.status(200).json(row);
+  } catch (error) {
+    console.error('Error updating firmware:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -112,7 +242,17 @@ async function main() {
           idempotency_key TEXT UNIQUE NOT NULL
       )
     `);
-    console.log('Devices table ensured');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS maintenance_schedules (
+          schedule_id SERIAL PRIMARY KEY,
+          device_id VARCHAR(64) REFERENCES devices(device_id) ON DELETE CASCADE,
+          start_time TIMESTAMPTZ NOT NULL,
+          end_time TIMESTAMPTZ NOT NULL,
+          reason TEXT,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Database tables ensured');
   } catch (e) {
     console.error('Failed to initialize database table:', e);
   }

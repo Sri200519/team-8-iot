@@ -35,6 +35,7 @@ app.get('/latest-readings/:sensor_id', async (req, res) => {
 
   const cached = await redisClient.get(cacheKey);
   if (cached) {
+    console.log("Using cache");
     return res.json(JSON.parse(cached));
   }
 
@@ -52,8 +53,59 @@ app.get('/latest-readings/:sensor_id', async (req, res) => {
   }
 
   await redisClient.setEx(cacheKey, 60, JSON.stringify(latest));
+  console.log("Fetched from database, added to cache");
   return res.json(latest);
 })
+
+// GET endpoint to Readings DB for Report Generation
+// Example URL: http://dashboard-api:3000/reports?startTime=xxxxxx&endTime=yyyyyyyy
+// startTime & endTime example: 2026-04-23T10:30:00Z - UTC and 2026-04-23T10:30:00-04:00 - EDT
+app.get('/reports', async (req, res) => {
+  try {
+    const { startTime, endTime } = req.query;
+
+    if (!startTime || !endTime) {
+      return res.status(400).json({ error: 'startTime and endTime are required' });
+    }
+
+    // Query average temperature, max temperature, avg pressure, max pressure, avg humidity, and max humidity per sensor
+    const report_per_sensor = await pool.query(
+      `SELECT
+        sensor_id,
+        AVG(temperature) AS avg_temperature,
+        MAX(temperature) AS max_temperature,
+        AVG(pressure) AS avg_pressure,
+        MAX(pressure) AS max_pressure,
+        AVG(humidity) AS avg_humidity,
+        MAX(humidity) AS max_humidity
+      FROM sensor_readings
+      WHERE timestamp >= $1 AND timestamp <= $2
+      GROUP BY sensor_id;`,
+      [startTime, endTime]
+    );
+
+    const report_all_sensors = await pool.query(
+      `SELECT
+        AVG(temperature) AS avg_temperature,
+        MAX(temperature) AS max_temperature,
+        AVG(pressure) AS avg_pressure,
+        MAX(pressure) AS max_pressure,
+        AVG(humidity) AS avg_humidity,
+        MAX(humidity) AS max_humidity
+      FROM sensor_readings
+      WHERE timestamp >= $1 AND timestamp <= $2`,
+      [startTime, endTime]
+    );
+
+    return res.json({
+      perSensor: report_per_sensor.rows,
+      overall: report_all_sensors.rows[0]
+    })
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 app.post('/dashboard', async (req, res) => {
   const { sensor_id, timestamp, temperature, pressure, humidity } = req.body
