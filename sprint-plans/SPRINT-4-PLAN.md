@@ -27,13 +27,13 @@ We will write some prewritten scripts that can help set up testing conditions.
 | Team Member | Files / Directories Owned This Sprint |
 | ----------- | ------------------------------------- |
 | Eric Gu         | `dashboard-api/` |
-| William Hammond | `anomaly-worker/` |
+| William Hammond | `caddy/` |
 | Zaeem           | `dashboard-ui/` |
-| Justin          |  `report-gen-worker/`  |
-| Sean            | `alert-service/, ‘k6/` |
+| Justin          |  `README.md`  |
+| Sean            | `k6/` |
 | Srikar          |  `sensor-registry/`|
-| Nam             |   `storage-worker/`          | 
-| Nathan          |   `ingestion/`        | 
+| Nam             |   `ingestion/`          | 
+| Nathan          |   `test_scripts/`        | 
 
 
 ---
@@ -87,15 +87,24 @@ We will write some prewritten scripts that can help set up testing conditions.
 ### Justin 
 
 
-- [ ] K6 
+- [ ] README documentation update 
 ---
 
 
 ## Risks
+
+
 We have to be sure that all of us understand how the system works, after having spent a good amount of time segmenting our understanding to specific parts of the system, like services and workers.
+
 
 ---
 
+
 ## Definition of Done
 
+
 `docker compose up --scale [service]=3` starts successfully. `docker compose ps` shows all replicas as `(healthy)`. k6 scaling comparison shows measurable improvement. Replica failure test shows no dropped requests.
+
+
+
+
