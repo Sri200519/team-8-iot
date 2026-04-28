@@ -209,6 +209,17 @@ async function workerLoop() {
 async function main() {
   redisHealthClient.on('error', err => console.error('Redis Health Client Error', err));
   redisQueueClient.on('error', err => console.error('Redis Queue Client Error', err));
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sensor_readings (
+      reading_id UUID PRIMARY KEY,
+      timestamp TIMESTAMPTZ NOT NULL,
+      sensor_id VARCHAR(64) NOT NULL,
+      temperature DOUBLE PRECISION,
+      pressure DOUBLE PRECISION,
+      humidity DOUBLE PRECISION
+    );
+  `);
   
   await redisHealthClient.connect();
   await redisQueueClient.connect();
