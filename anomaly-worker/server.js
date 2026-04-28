@@ -10,6 +10,7 @@ let jobsProcessed = 0;
 
 const queueClient = redis.createClient({ url: process.env.REDIS_URL });
 const healthClient = redis.createClient({ url: process.env.REDIS_URL });
+const pubClient = redis.createClient({ url: process.env.REDIS_URL });
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -26,7 +27,7 @@ app.get('/health', async (req, res) => {
     ]);
 
     res.status(200).json({
-      status: 'healthy',
+      status: dlqDepth > 0 ? 'degraded' : 'healthy',
       redis: 'ok',
       depth,
       dlq_depth: dlqDepth,
@@ -50,6 +51,90 @@ app.listen(PORT, () => {
 });
 
 // ── Worker loop ───────────────────────────────────────────────────────────────
+async function processReading(raw) {
+  let reading;
+
+  // Poison pill — invalid JSON
+  try {
+    reading = JSON.parse(raw);
+  } catch (err) {
+    console.log(JSON.stringify({ event: 'poison_pill', reason: 'invalid JSON', raw, timestamp: new Date().toISOString() }));
+    await queueClient.rPush(DLQ_KEY, raw);
+    return;
+  }
+
+  // Poison pill — missing required fields
+  const required = ['sensor_id', 'temperature', 'humidity', 'pressure', 'timestamp'];
+  const missing = required.filter(f => reading[f] == null);
+  if (missing.length > 0) {
+    console.log(JSON.stringify({ event: 'poison_pill', reason: 'missing fields', missing, raw, timestamp: new Date().toISOString() }));
+    await queueClient.rPush(DLQ_KEY, raw);
+    return;
+  }
+
+  // Threshold lookup — check Redis cache first
+  const cacheKey = `sensor:thresholds:${reading.sensor_id}`;
+  let thresholds;
+
+  try {
+    const cached = await queueClient.get(cacheKey);
+    if (cached) {
+      thresholds = JSON.parse(cached);
+      console.log(JSON.stringify({ event: 'cache_hit', sensor_id: reading.sensor_id, timestamp: new Date().toISOString() }));
+    } else {
+      const response = await fetch(`${process.env.SENSOR_REGISTRY_URL}/sensors/${reading.sensor_id}`);
+      if (!response.ok) throw new Error(`Registry returned ${response.status}`);
+      thresholds = await response.json();
+      await queueClient.set(cacheKey, JSON.stringify(thresholds), { EX: 60 });
+      console.log(JSON.stringify({ event: 'cache_miss', sensor_id: reading.sensor_id, timestamp: new Date().toISOString() }));
+    }
+  } catch (err) {
+    console.log(JSON.stringify({ event: 'poison_pill', reason: 'sensor not found in registry', sensor_id: reading.sensor_id, timestamp: new Date().toISOString() }));
+    await queueClient.rPush(DLQ_KEY, raw);
+    return;
+  }
+
+  // Check for anomalies
+  const anomalies = [];
+  if (thresholds.max_temp != null && reading.temperature > thresholds.max_temp)
+    anomalies.push({ alert_type: 'HIGH_TEMPERATURE', reading_value: reading.temperature });
+  if (thresholds.min_temp != null && reading.temperature < thresholds.min_temp)
+    anomalies.push({ alert_type: 'LOW_TEMPERATURE', reading_value: reading.temperature });
+  if (thresholds.max_humidity != null && reading.humidity > thresholds.max_humidity)
+    anomalies.push({ alert_type: 'HIGH_HUMIDITY', reading_value: reading.humidity });
+  if (thresholds.min_humidity != null && reading.humidity < thresholds.min_humidity)
+    anomalies.push({ alert_type: 'LOW_HUMIDITY', reading_value: reading.humidity });
+  if (thresholds.max_pressure != null && reading.pressure > thresholds.max_pressure)
+    anomalies.push({ alert_type: 'HIGH_PRESSURE', reading_value: reading.pressure });
+  if (thresholds.min_pressure != null && reading.pressure < thresholds.min_pressure)
+    anomalies.push({ alert_type: 'LOW_PRESSURE', reading_value: reading.pressure });
+
+  // Publish alerts
+  for (const anomaly of anomalies) {
+    const alert = {
+      sensor_id: reading.sensor_id,
+      message: `${anomaly.alert_type} detected (value: ${anomaly.reading_value})`,
+      timestamp: reading.timestamp,
+      reading_value: anomaly.reading_value,
+      alert_type: anomaly.alert_type,
+    };
+    await pubClient.publish('alerts', JSON.stringify(alert));
+    console.log(JSON.stringify({ event: 'alert_published', ...alert, timestamp: new Date().toISOString() }));
+  }
+
+  const currDepth = await queueClient.lLen(QUEUE_KEY);
+  lastJobAt = new Date().toISOString();
+  jobsProcessed++;
+  console.log(JSON.stringify({
+    event: 'job_processed',
+    sensor_id: reading.sensor_id,
+    anomalies_found: anomalies.length,
+    depth: currDepth,
+    jobs_processed: jobsProcessed,
+    timestamp: lastJobAt,
+  }));
+}
+
 async function workerLoop() {
   console.log(JSON.stringify({ event: 'worker_started', queue: QUEUE_KEY, timestamp: new Date().toISOString() }));
 
@@ -57,18 +142,7 @@ async function workerLoop() {
     try {
       const result = await queueClient.blPop(QUEUE_KEY, 5);
       if (result) {
-        const currDepth = await queueClient.lLen(QUEUE_KEY);
-        const reading = JSON.parse(result.element);
-        lastJobAt = new Date().toISOString();
-        jobsProcessed++;
-        await sleep(200);
-        console.log(JSON.stringify({
-          event: 'job_processed',
-          sensor_id: reading.sensor_id,
-          depth: currDepth,
-          jobs_processed: jobsProcessed,
-          timestamp: lastJobAt,
-        }));
+        await processReading(result.element);
       }
     } catch (err) {
       console.log(JSON.stringify({ event: 'worker_error', error: err.message, timestamp: new Date().toISOString() }));
@@ -81,6 +155,7 @@ async function workerLoop() {
 async function main() {
   await queueClient.connect();
   await healthClient.connect();
+  await pubClient.connect();
   workerLoop();
 }
 

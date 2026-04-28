@@ -1,0 +1,7 @@
+
+These are the Sprint 3 test results:
+
+The HTTP P(50) REQ DURATION is: 2.972125
+    The HTTP P(95) REQ DURATION is: 4.064549199999999
+    The HTTP P(99) REQ DURATION is: 6.737023230000001
+    The Rate of Requests per Second was: 28.418768650271883
