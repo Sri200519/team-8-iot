@@ -169,25 +169,6 @@ app.post('/sensors', async (req, res) => {
 
 async function main() {
   await redisClient.connect().catch(() => {})
-  try {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS sensors (
-        sensor_id VARCHAR(64) PRIMARY KEY,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        location TEXT,
-        sensor_type VARCHAR(50),
-        min_temp DOUBLE PRECISION,
-        max_temp DOUBLE PRECISION,
-        min_humidity DOUBLE PRECISION,
-        max_humidity DOUBLE PRECISION,
-        min_pressure DOUBLE PRECISION,
-        max_pressure DOUBLE PRECISION
-      )
-    `)
-  } catch (error) {
-    console.error('Failed to initialize sensors table:', error.message)
-  }
   app.listen(PORT, () => {
     console.log(`Sensor Registry running on port ${PORT}`)
   })
