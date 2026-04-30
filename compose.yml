@@ -105,7 +105,6 @@ services:
     build:
       context: .
       dockerfile: dashboard-api/Dockerfile
-    container_name: dashboard-api
     restart: unless-stopped
     depends_on:
       readings:
