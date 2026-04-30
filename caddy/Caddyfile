@@ -1,0 +1,17 @@
+:80 {
+    handle /readings* {
+        reverse_proxy ingestion-service:3001
+    }
+    handle /dashboard* {
+        reverse_proxy dashboard-api:3000
+    }
+    handle /alerts* {
+        reverse_proxy alert-service:3000
+    }
+    handle /sensors* {
+        reverse_proxy sensor-registry-service:3000
+    }
+    handle /devices* {
+        reverse_proxy device-management-service:3000
+    }
+}
