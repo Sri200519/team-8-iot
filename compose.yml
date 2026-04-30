@@ -105,7 +105,6 @@ services:
     build:
       context: .
       dockerfile: dashboard-api/Dockerfile
-    container_name: dashboard-api
     restart: unless-stopped
     depends_on:
       readings:
@@ -298,7 +297,6 @@ services:
     build:
       context: .
       dockerfile: sensor-registry/Dockerfile
-    container_name: sensor-registry-service
     restart: unless-stopped
     networks:
       - team-net
@@ -311,12 +309,41 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      sensor-registry-migration:
+        condition: service_completed_successfully
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:3000/health >/dev/null || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  # ── Sensor Registry Migration ───────────────────────────────────────────
+  sensor-registry-migration:
+    image: postgres:16
+    container_name: sensor-registry-migration
+    networks:
+      - team-net
+    environment:
+      - PGPASSWORD=pass
+    command: >
+      psql -h sensor-registry -U user -d sensor-registry-db -c
+      "CREATE TABLE IF NOT EXISTS sensors (
+        sensor_id VARCHAR(64) PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        location TEXT,
+        sensor_type VARCHAR(50),
+        min_temp DOUBLE PRECISION,
+        max_temp DOUBLE PRECISION,
+        min_humidity DOUBLE PRECISION,
+        max_humidity DOUBLE PRECISION,
+        min_pressure DOUBLE PRECISION,
+        max_pressure DOUBLE PRECISION
+      );"
+    depends_on:
+      sensor-registry:
+        condition: service_healthy
 
   # ── Alert Service ───────────────────────────────────────────────────────
   alert-service:
