@@ -4,7 +4,6 @@
 //   docker compose exec holmes bash
 //   k6 run /workspace/k6/sprint-4-replica.js
 //
-// Replace TARGET_URL with your main read endpoint.
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -29,7 +28,7 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get(`${BASE_URL}/sensors/sensor-1`);
+  const res = http.get(`${BASE_URL}/dashboard/sensors/sensor-1`);
 
   const ok = check(res, {
     'status is 200': (r) => r.status === 200,
@@ -48,7 +47,7 @@ export function handleSummary(data) {
 
   return {
     'k6-sprint-4-replica-summary.txt': `
-These are the Sprint 4 Replica Failure Test Results:
+These are the Sprint 4 Replica Test Results:
 
 HTTP P(50): ${p50}
 HTTP P(95): ${p95}

@@ -5,11 +5,6 @@
 //   k6 run --env SCALE=single /workspace/k6/sprint-4-scale.js
 //   k6 run --env SCALE=replicated /workspace/k6/sprint-4-scale.js
 //
-// Replace TARGET_URL with your main read endpoint.
-
-
-//git pull origin dev
-//to get from dev
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -18,11 +13,14 @@ import { Rate } from 'k6/metrics';
 const errorRate = new Rate('errors');
 
 const BASE_URL = __ENV.BASE_URL || 'http://caddy:80';
+const SCALE = __ENV.SCALE || 'single';
+
+const TARGET = SCALE === 'replicated' ? 50 : 20;
 
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(95)', 'p(99)'],
   stages: [
-    { duration: '30', target: 20 },
+    { duration: '30s', target: 20 },
     { duration: '60s', target: 50 },
     { duration: '10s', target: 0 },
   ],
@@ -33,7 +31,7 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get(`${BASE_URL}/sensors/sensor-1`);
+  const res = http.get(`${BASE_URL}/dashboard/sensors/sensor-1`);
 
   const ok = check(res, {
     'status is 200': (r) => r.status === 200,
@@ -51,8 +49,8 @@ export function handleSummary(data) {
   const RPS = data.metrics.http_reqs.values['rate'];
 
   return {
-    'k6-sprint-4-scale-summary.txt': `
-These are the Sprint 4 Scale Test Results:
+    [`k6-sprint-4-scale-${SCALE}.txt`]: `
+These are the Sprint 4 Scale Test Results For ${SCALE}:
 
 HTTP P(50): ${p50}
 HTTP P(95): ${p95}
