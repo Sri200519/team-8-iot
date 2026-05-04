@@ -1,0 +1,7 @@
+
+These are the Sprint 4 Scale Test Results For replicated:
+
+HTTP P(50): 2.447202
+HTTP P(95): 3.3286457499999997
+HTTP P(99): 5.420157149999998
+Requests Per Second: 53.88120910763721

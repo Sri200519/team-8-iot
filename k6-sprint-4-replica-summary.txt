@@ -1,0 +1,7 @@
+
+These are the Sprint 4 Replica Test Results:
+
+HTTP P(50): 2.486363
+HTTP P(95): 3.3674432000000003
+HTTP P(99): 5.263435879999985
+Requests Per Second: 36.69142620514871
