@@ -5,11 +5,15 @@
 	}
 
 	handle_path /readings* {
-		reverse_proxy ingestion-service:3001
+		reverse_proxy ingestion:3001 {
+			lb_policy round_robin
+		}
 	}
 
 	handle_path /dashboard* {
-		reverse_proxy dashboard-api:3000
+		reverse_proxy dashboard-api:3000 {
+			lb_policy round_robin
+		}
 	}
 
 	handle_path /alerts* {
@@ -17,7 +21,9 @@
 	}
 
 	handle_path /sensors* {
-		reverse_proxy sensor-registry-service:3000
+		reverse_proxy sensor-registry-service:3000 {
+			lb_policy round_robin
+		}
 	}
 
 	handle_path /devices* {
