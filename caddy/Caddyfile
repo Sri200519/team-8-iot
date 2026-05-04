@@ -10,23 +10,29 @@
 		}
 	}
 
-	handle_path /dashboard* {
+	handle /dashboard {
 		reverse_proxy dashboard-api:3000 {
 			lb_policy round_robin
 		}
 	}
 
-	handle_path /alerts* {
+	handle_path /dashboard/* {
+		reverse_proxy dashboard-api:3000 {
+			lb_policy round_robin
+		}
+	}
+
+	handle /alerts* {
 		reverse_proxy alert-service:3000
 	}
 
-	handle_path /sensors* {
+	handle /sensors* {
 		reverse_proxy sensor-registry-service:3000 {
 			lb_policy round_robin
 		}
 	}
 
-	handle_path /devices* {
+	handle /devices* {
 		reverse_proxy device-management-service:3000
 	}
 
