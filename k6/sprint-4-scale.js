@@ -31,7 +31,7 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get(`${BASE_URL}/dashboard/sensors/sensor-1`);
+  const res = http.get(`${BASE_URL}/dashboard/latest-readings/sensor-1`);
 
   const ok = check(res, {
     'status is 200': (r) => r.status === 200,
