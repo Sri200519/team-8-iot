@@ -40,7 +40,7 @@ docker compose up --build
 
 
 # Start with service replicas (Sprint 4)
-docker compose up --scale your-service=3
+docker compose up --build --scale ingestion=3 --scale dashboard-api=3 --scale sensor-registry-service=3 -d
 
 
 # Verify all services are healthy
@@ -102,6 +102,41 @@ At any point a bad reading is placed into a queue, it is eventually sorted and h
 
 
 Dashboard information is shown via the Dashboard service, which reads from the Readings DB or a closer Redis cache.
+
+
+---
+
+
+## Seed Data Steps (Before Running Sprint 4 k6 Tests)
+
+
+```bash
+# 1) Register a sensor profile first
+curl -X POST http://localhost:80/sensors/sensors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sensor_id":"sensor-1",
+    "location":"lab-a",
+    "type":"climate",
+    "min_temp":15,
+    "max_temp":30,
+    "min_humidity":20,
+    "max_humidity":70,
+    "min_pressure":980,
+    "max_pressure":1040
+  }'
+
+# 2) Send at least one reading
+curl -X POST http://localhost:80/readings/sensor \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sensor_id":"sensor-1",
+    "timestamp":"2026-05-04T18:00:00Z",
+    "temperature":24.1,
+    "pressure":1012.4,
+    "humidity":45.8
+  }'
+```
 
 
 
@@ -941,3 +976,24 @@ curl http://anomaly-worker:3002/health
 | 2      | `sprint-2` | [SPRINT-2-PLAN.md](sprint-plans/SPRINT-2-PLAN.md) | [SPRINT-2.md](sprint-reports/SPRINT-2.md) |
 | 3      | `sprint-3` | [SPRINT-3-PLAN.md](sprint-plans/SPRINT-3-PLAN.md) | [SPRINT-3.md](sprint-reports/SPRINT-3.md) |
 | 4      | `sprint-4` | [SPRINT-4-PLAN.md](sprint-plans/SPRINT-4-PLAN.md) | [SPRINT-4.md](sprint-reports/SPRINT-4.md) |
+
+
+---
+
+
+## Sprint 4 k6 Commands
+
+
+```bash
+# Scaling comparison
+k6 run --env BASE_URL=http://localhost:80 --env SCALE=single k6/sprint-4-scale.js
+k6 run --env BASE_URL=http://localhost:80 --env SCALE=replicated k6/sprint-4-scale.js
+
+# Replica failure test
+k6 run --env BASE_URL=http://localhost:80 k6/sprint-4-replica.js
+```
+
+
+Notes:
+- Both Sprint 4 scripts currently target `GET /dashboard/health` through Caddy.
+- During replica-failure testing, stop one replica mid-run, then restart and confirm no request failures.
