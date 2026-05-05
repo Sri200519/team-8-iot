@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Endless Eight Demo UI</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Endless Eight Demo Dashboard</h1>
+      <p class="muted">Simple and reliable UI for service workflows.</p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Service Health</h2>
+        <button id="healthBtn">Refresh Health</button>
+        <pre id="healthOut">No health check yet.</pre>
+      </section>
+
+      <section class="card">
+        <h2>Ingestion Submit Reading</h2>
+        <form id="ingestForm">
+          <input name="sensor_id" placeholder="sensor_id" required />
+          <input name="temperature" placeholder="temperature" type="number" step="any" required />
+          <input name="humidity" placeholder="humidity" type="number" step="any" required />
+          <input name="pressure" placeholder="pressure" type="number" step="any" required />
+          <button type="submit">Submit</button>
+        </form>
+        <pre id="ingestOut"></pre>
+      </section>
+
+      <section class="card">
+        <h2>Sensor Registry Upsert Metadata</h2>
+        <form id="sensorPostForm">
+          <input name="sensor_id" placeholder="sensor_id" required />
+          <input name="location" placeholder="location" required />
+          <input name="type" placeholder="type" required />
+          <input name="min_temp" placeholder="min_temp" type="number" step="any" required />
+          <input name="max_temp" placeholder="max_temp" type="number" step="any" required />
+          <input name="min_humidity" placeholder="min_humidity" type="number" step="any" required />
+          <input name="max_humidity" placeholder="max_humidity" type="number" step="any" required />
+          <input name="min_pressure" placeholder="min_pressure" type="number" step="any" required />
+          <input name="max_pressure" placeholder="max_pressure" type="number" step="any" required />
+          <button type="submit">Upsert</button>
+        </form>
+        <pre id="sensorPostOut"></pre>
+      </section>
+
+      <section class="card">
+        <h2>Sensor Registry Lookup</h2>
+        <form id="sensorGetForm">
+          <input name="sensor_id" placeholder="sensor_id" required />
+          <button type="submit">Fetch</button>
+        </form>
+        <pre id="sensorGetOut"></pre>
+      </section>
+
+      <section class="card">
+        <h2>Alerts Feed</h2>
+        <button id="alertsBtn">Fetch Alerts</button>
+        <pre id="alertsOut"></pre>
+      </section>
+
+      <section class="card">
+        <h2>Report Request Queue</h2>
+        <form id="reportForm">
+          <input name="sensor_id" placeholder="sensor_id" required />
+          <input name="startTime" placeholder="startTime ISO" required />
+          <input name="endTime" placeholder="endTime ISO" required />
+          <button type="submit">Queue Report Request</button>
+        </form>
+        <pre id="reportOut"></pre>
+      </section>
+
+      <section class="card">
+        <h2>Request History</h2>
+        <button id="clearHistoryBtn">Clear History</button>
+        <pre id="historyOut">No requests yet.</pre>
+      </section>
+    </main>
+
+    <footer>
+      <div id="statusBar">Ready</div>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+  </html>

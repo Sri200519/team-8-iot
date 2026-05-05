@@ -71,6 +71,8 @@ services:
       - DATABASE_URL=postgres://user:pass@ingestion-db:5432/ingestion-db
       - REDIS_URL=redis://redis:6379
       - SERVICE_NAME=ingestion-service
+      - STORAGE_QUEUE_KEY=sensor:readings:storage:queue
+      - ANOMALY_QUEUE_KEY=sensor:readings:anomaly:queue
     networks:
       - team-net
     healthcheck:
@@ -406,7 +408,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - SENSOR_REGISTRY_URL=http://sensor-registry-service:3000
-      - QUEUE_KEY=sensor:readings:queue
+      - QUEUE_KEY=sensor:readings:anomaly:queue
       - PORT=3002
     depends_on:
       redis:
@@ -468,6 +470,7 @@ services:
       - PORT=3004
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgres://user:pass@readings:5432/readings-db
+      - QUEUE_KEY=sensor:readings:storage:queue
       - STORAGE_DLQ_KEY=storage:dlq
     depends_on:
       redis:
