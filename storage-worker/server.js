@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3004;
 const QUEUE_KEY = process.env.QUEUE_KEY || 'sensor:readings:queue';
-const DLQ_KEY = process.env.STORAGE_DLQ_KEY || `storage:dlq`;
+const DLQ_KEY = process.env.STORAGE_DLQ_KEY || `${QUEUE_KEY}$:dlq`;
 const BATCH_SIZE = Number(process.env.BATCH_SIZE || 50);
 const BATCH_FLUSH_MS = Number(process.env.BATCH_FLUSH_MS || 2000);
 const REQUIRED_FIELDS = ['reading_id', 'sensor_id', 'timestamp', 'temperature', 'pressure', 'humidity'];
