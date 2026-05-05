@@ -94,21 +94,21 @@ app.get('/data', async (req, res) => {
 async function main() {
   await redisClient.connect().catch(() => { })
 
-   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS sensor_readings (
-          reading_id     UUID PRIMARY KEY,
-          timestamp      TIMESTAMPTZ NOT NULL,
-          sensor_id      VARCHAR(64) NOT NULL,
-          temperature    DOUBLE PRECISION,
-          pressure       DOUBLE PRECISION,
-          humidity       DOUBLE PRECISION
-      );
-    `);
-    console.log('sensor_readings table created');
-  } catch (e) {
-    console.error('Failed to initialize sensor_readings table:', e);
-  }
+  //  try {
+  //   await pool.query(`
+  //     CREATE TABLE IF NOT EXISTS sensor_readings (
+  //         reading_id     UUID PRIMARY KEY,
+  //         timestamp      TIMESTAMPTZ NOT NULL,
+  //         sensor_id      VARCHAR(64) NOT NULL,
+  //         temperature    DOUBLE PRECISION,
+  //         pressure       DOUBLE PRECISION,
+  //         humidity       DOUBLE PRECISION
+  //     );
+  //   `);
+  //   console.log('sensor_readings table created');
+  // } catch (e) {
+  //   console.error('Failed to initialize sensor_readings table:', e);
+  // }
 
   app.listen(port, () => {
     console.log(`Ingestion Service listening on port ${port}`)

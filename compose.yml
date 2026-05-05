@@ -56,17 +56,36 @@ services:
       start_period: 5s
   # Holmes has no ports — access it via: docker compose exec holmes bash
 
+
+  # ── Ingestion-Migrate Service ──────────────────────────────────────────────────────
+  ingestion-migrate:
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
+    restart: "no"
+    depends_on:
+      ingestion-db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://user:pass@ingestion-db:5432/ingestion-db
+    networks:
+      - team-net
+    command: ["npm", "run", "migrate"]
+
   # ── Ingestion Service ──────────────────────────────────────────────────────
   ingestion:
     build:
       context: .
       dockerfile: ingestion/Dockerfile
+    # container_name: ingestion-service
     restart: unless-stopped
     depends_on:
       ingestion-db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ingestion-migrate:
+        condition: service_completed_successfully
     environment:
       - DATABASE_URL=postgres://user:pass@ingestion-db:5432/ingestion-db
       - REDIS_URL=redis://redis:6379
