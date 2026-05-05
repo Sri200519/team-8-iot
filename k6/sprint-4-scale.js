@@ -15,8 +15,6 @@ const errorRate = new Rate('errors');
 const BASE_URL = __ENV.BASE_URL || 'http://caddy:80';
 const SCALE = __ENV.SCALE || 'single';
 
-const TARGET = SCALE === 'replicated' ? 50 : 20;
-
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(95)', 'p(99)'],
   stages: [
@@ -31,7 +29,7 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get(`${BASE_URL}/dashboard/sensors/sensor-1`);
+  const res = http.get(`${BASE_URL}/dashboard/latest-readings/sensor-1`);
 
   const ok = check(res, {
     'status is 200': (r) => r.status === 200,

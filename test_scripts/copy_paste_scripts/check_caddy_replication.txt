@@ -1,0 +1,8 @@
+docker compose logs ingestion 
+# Different container names should appear
+
+docker compose logs dashboard-api 
+# Different container names should appear
+
+docker compose logs sensor-registry-service 
+# Different container names should appear
