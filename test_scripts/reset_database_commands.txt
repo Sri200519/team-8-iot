@@ -1,0 +1,78 @@
+psql postgres://user:pass@ingestion-db:5432/ingestion-db -c "DROP TABLE IF EXISTS sensor_readings"
+psql postgres://user:pass@ingestion-db:5432/ingestion-db -c "CREATE TABLE IF NOT EXISTS sensor_readings (
+          reading_id     UUID PRIMARY KEY,
+          timestamp      TIMESTAMPTZ NOT NULL,
+          sensor_id      VARCHAR(64) NOT NULL,
+          temperature    DOUBLE PRECISION,
+          pressure       DOUBLE PRECISION,
+          humidity       DOUBLE PRECISION
+      );"
+
+psql postgres://user:pass@alert:5432/alert-db -c "DROP TABLE IF EXISTS alerts"
+psql postgres://user:pass@alert:5432/alert-db -c "create table if not exists alerts (
+        alert_id    uuid primary key default gen_random_uuid(),
+        sensor_id   varchar(255) not null,
+        message     text not null,
+        timestamp   timestamptz not null,
+        reading_value float not null,
+        alert_type  varchar(50) not null
+      )"
+
+
+psql postgres://user:pass@device:5432/device-db -c "DROP TABLE IF EXISTS devices CASCADE"
+psql postgres://user:pass@device:5432/device-db -c "DROP TABLE IF EXISTS maintenance_schedules"
+psql postgres://user:pass@device:5432/device-db -c "CREATE TABLE IF NOT EXISTS devices (
+          device_id VARCHAR(64) PRIMARY KEY,
+          sensor_id VARCHAR(64) UNIQUE,
+          status VARCHAR(20) NOT NULL,
+          version VARCHAR(50),
+          registered_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          last_seen_at TIMESTAMPTZ,
+          metadata JSONB,
+          idempotency_key TEXT UNIQUE NOT NULL
+      )"
+psql postgres://user:pass@device:5432/device-db -c "CREATE TABLE IF NOT EXISTS maintenance_schedules (
+          schedule_id SERIAL PRIMARY KEY,
+          device_id VARCHAR(64) REFERENCES devices(device_id) ON DELETE CASCADE,
+          start_time TIMESTAMPTZ NOT NULL,
+          end_time TIMESTAMPTZ NOT NULL,
+          reason TEXT,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )"
+
+
+psql postgres://user:pass@report:5432/report-db -c "DROP TABLE IF EXISTS reports"
+psql postgres://user:pass@report:5432/report-db -c "CREATE TABLE IF NOT EXISTS reports (
+      report_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      sensor_id       VARCHAR(255) NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      min_temp        FLOAT NOT NULL,
+      max_temp        FLOAT NOT NULL,
+      avg_temp        FLOAT NOT NULL,
+      min_humidity    FLOAT NOT NULL,
+      max_humidity    FLOAT NOT NULL,
+      avg_humidity    FLOAT NOT NULL,
+      min_pressure    FLOAT NOT NULL,
+      max_pressure    FLOAT NOT NULL,
+      avg_pressure    FLOAT NOT NULL,
+      start_time      TIMESTAMPTZ NOT NULL,
+      end_time        TIMESTAMPTZ NOT NULL,
+      CONSTRAINT uq_report_sensor_range UNIQUE (sensor_id, start_time, end_time)
+    );"
+
+
+psql postgres://user:pass@sensor-registry:5432/sensor-registry-db -c "DROP TABLE IF EXISTS sensors"
+psql postgres://user:pass@sensor-registry:5432/sensor-registry-db -c "CREATE TABLE IF NOT EXISTS sensors (
+        sensor_id VARCHAR(64) PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        location TEXT,
+        sensor_type VARCHAR(50),
+        min_temp DOUBLE PRECISION,
+        max_temp DOUBLE PRECISION,
+        min_humidity DOUBLE PRECISION,
+        max_humidity DOUBLE PRECISION,
+        min_pressure DOUBLE PRECISION,
+        max_pressure DOUBLE PRECISION
+      );"
+
