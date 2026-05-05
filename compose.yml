@@ -56,22 +56,42 @@ services:
       start_period: 5s
   # Holmes has no ports — access it via: docker compose exec holmes bash
 
+
+  # ── Ingestion-Migrate Service ──────────────────────────────────────────────────────
+  ingestion-migrate:
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
+    restart: "no"
+    depends_on:
+      ingestion-db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://user:pass@ingestion-db:5432/ingestion-db
+    networks:
+      - team-net
+    command: ["npm", "run", "migrate"]
+
   # ── Ingestion Service ──────────────────────────────────────────────────────
   ingestion:
     build:
       context: .
       dockerfile: ingestion/Dockerfile
-    container_name: ingestion-service
+    # container_name: ingestion-service
     restart: unless-stopped
     depends_on:
       ingestion-db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ingestion-migrate:
+        condition: service_completed_successfully
     environment:
       - DATABASE_URL=postgres://user:pass@ingestion-db:5432/ingestion-db
       - REDIS_URL=redis://redis:6379
       - SERVICE_NAME=ingestion-service
+      - STORAGE_QUEUE_KEY=sensor:readings:storage:queue
+      - ANOMALY_QUEUE_KEY=sensor:readings:anomaly:queue
     networks:
       - team-net
     healthcheck:
@@ -105,7 +125,6 @@ services:
     build:
       context: .
       dockerfile: dashboard-api/Dockerfile
-    container_name: dashboard-api
     restart: unless-stopped
     depends_on:
       readings:
@@ -298,7 +317,6 @@ services:
     build:
       context: .
       dockerfile: sensor-registry/Dockerfile
-    container_name: sensor-registry-service
     restart: unless-stopped
     networks:
       - team-net
@@ -311,12 +329,41 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      sensor-registry-migration:
+        condition: service_completed_successfully
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:3000/health >/dev/null || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  # ── Sensor Registry Migration ───────────────────────────────────────────
+  sensor-registry-migration:
+    image: postgres:16
+    container_name: sensor-registry-migration
+    networks:
+      - team-net
+    environment:
+      - PGPASSWORD=pass
+    command: >
+      psql -h sensor-registry -U user -d sensor-registry-db -c
+      "CREATE TABLE IF NOT EXISTS sensors (
+        sensor_id VARCHAR(64) PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        location TEXT,
+        sensor_type VARCHAR(50),
+        min_temp DOUBLE PRECISION,
+        max_temp DOUBLE PRECISION,
+        min_humidity DOUBLE PRECISION,
+        max_humidity DOUBLE PRECISION,
+        min_pressure DOUBLE PRECISION,
+        max_pressure DOUBLE PRECISION
+      );"
+    depends_on:
+      sensor-registry:
+        condition: service_healthy
 
   # ── Alert Service ───────────────────────────────────────────────────────
   alert-service:
@@ -380,7 +427,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - SENSOR_REGISTRY_URL=http://sensor-registry-service:3000
-      - QUEUE_KEY=sensor:readings:queue
+      - QUEUE_KEY=sensor:readings:anomaly:queue
       - PORT=3002
     depends_on:
       redis:
@@ -442,6 +489,7 @@ services:
       - PORT=3004
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgres://user:pass@readings:5432/readings-db
+      - QUEUE_KEY=sensor:readings:storage:queue
       - STORAGE_DLQ_KEY=storage:dlq
     depends_on:
       redis:
@@ -456,6 +504,35 @@ services:
       start_period: 20s
     ports:
       - "3004:3004"
+
+  # ── Caddy Load Balancer ────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+    networks:
+      - team-net
+    depends_on:
+      ingestion:
+        condition: service_healthy
+      dashboard-api:
+        condition: service_healthy
+      alert-service:
+        condition: service_healthy
+      sensor-registry-service:
+        condition: service_healthy
+      device-management-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 # ── Named volumes ──────────────────────────────────────────────────────────────
 # Declare a volume for each database here, e.g.:

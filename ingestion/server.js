@@ -12,7 +12,8 @@ const pool = new Pool({
 const redisClient = createClient({ url: process.env.REDIS_URL })
 redisClient.on('error', () => { })
 
-const READING_QUEUE_KEY = process.env.QUEUE_KEY || 'sensor:readings:queue';
+const STORAGE_QUEUE_KEY = process.env.STORAGE_QUEUE_KEY || 'sensor:readings:storage:queue';
+const ANOMALY_QUEUE_KEY = process.env.ANOMALY_QUEUE_KEY || 'sensor:readings:anomaly:queue';
 
 const app = express()
 const port = 3001
@@ -60,7 +61,12 @@ app.post('/sensor', async (req, res) => {
   }
 
   try {
-    await redisClient.rPush(READING_QUEUE_KEY, JSON.stringify(sensor_reading));
+    // Fan out to dedicated queues so storage and anomaly workers both receive every reading.
+    const payload = JSON.stringify(sensor_reading)
+    await Promise.all([
+      redisClient.rPush(STORAGE_QUEUE_KEY, payload),
+      redisClient.rPush(ANOMALY_QUEUE_KEY, payload),
+    ])
 
     return res.status(202).json({status: 'success', ...sensor_reading})
   } catch(e) {
@@ -88,21 +94,21 @@ app.get('/data', async (req, res) => {
 async function main() {
   await redisClient.connect().catch(() => { })
 
-   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS sensor_readings (
-          reading_id     UUID PRIMARY KEY,
-          timestamp      TIMESTAMPTZ NOT NULL,
-          sensor_id      VARCHAR(64) NOT NULL,
-          temperature    DOUBLE PRECISION,
-          pressure       DOUBLE PRECISION,
-          humidity       DOUBLE PRECISION
-      );
-    `);
-    console.log('sensor_readings table created');
-  } catch (e) {
-    console.error('Failed to initialize sensor_readings table:', e);
-  }
+  //  try {
+  //   await pool.query(`
+  //     CREATE TABLE IF NOT EXISTS sensor_readings (
+  //         reading_id     UUID PRIMARY KEY,
+  //         timestamp      TIMESTAMPTZ NOT NULL,
+  //         sensor_id      VARCHAR(64) NOT NULL,
+  //         temperature    DOUBLE PRECISION,
+  //         pressure       DOUBLE PRECISION,
+  //         humidity       DOUBLE PRECISION
+  //     );
+  //   `);
+  //   console.log('sensor_readings table created');
+  // } catch (e) {
+  //   console.error('Failed to initialize sensor_readings table:', e);
+  // }
 
   app.listen(port, () => {
     console.log(`Ingestion Service listening on port ${port}`)

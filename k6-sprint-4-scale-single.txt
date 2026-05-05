@@ -1,0 +1,7 @@
+
+These are the Sprint 4 Scale Test Results For single:
+
+HTTP P(50): 2.2821784999999997
+HTTP P(95): 3.20006475
+HTTP P(99): 4.8496682899999985
+Requests Per Second: 53.79337600411853

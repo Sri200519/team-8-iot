@@ -24,7 +24,6 @@
 | William Hammond       | `Anomaly Worker`               |
 | Eric Gu               | `Dashboard API` |
 
-
 > Ownership is verified by `git log --author`. Each person must have meaningful commits in the directories they claim.
 
 
@@ -40,7 +39,7 @@ docker compose up --build
 
 
 # Start with service replicas (Sprint 4)
-docker compose up --scale your-service=3
+docker compose up --build --scale ingestion=3 --scale dashboard-api=3 --scale sensor-registry-service=3 -d
 
 
 # Verify all services are healthy
@@ -202,7 +201,9 @@ POST /dashboard
 
 
 ```bash
-curl http://dashboard-api:3000/dashboard?sensor_id=1&timestamp=2026-04-09T15:10:00Z&temperature=23.2&pressure=1012.2&humidity=10.1
+curl -X POST http://dashboard-api:3000/dashboard \
+  -H "Content-Type: application/json" \
+  -d '{"sensor_id":"sensor-1","timestamp":"2026-04-09T15:10:00Z","temperature":23.2,"pressure":1012.2,"humidity":10.1}'
 ```
 
 
@@ -301,7 +302,9 @@ POST /sensor
 
 
 ```bash
-curl http://ingestion:3001/sensor
+curl -X POST http://ingestion:3001/sensor \
+  -H "Content-Type: application/json" \
+  -d '{"sensor_id":"sensor-1","timestamp":"2026-04-09T15:10:00Z","temperature":22.5,"pressure":1013.2,"humidity":48.7}'
 ```
 
 
@@ -448,7 +451,7 @@ GET /sensors/:id
 
 
 ```bash
-curl http://sensor-registry:3000/sensors/sensor-1
+curl http://sensor-registry-service:3000/sensors/sensor-1
 ```
 
 
@@ -487,7 +490,7 @@ GET /health
 
 
 ```bash
-curl http://sensor-registry:3000/health
+curl http://sensor-registry-service:3000/health
 ```
 
 
@@ -931,6 +934,62 @@ curl http://anomaly-worker:3002/health
 
 
 ---
+
+
+## Seed Data Steps (Before Running Sprint 4 k6 Tests)
+
+
+```bash
+# 1) Create sensor metadata
+curl -X POST http://sensor-registry-service:3000/sensors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sensor_id":"sensor-1",
+    "location":"lab-a",
+    "type":"climate",
+    "min_temp":15,
+    "max_temp":30,
+    "min_humidity":20,
+    "max_humidity":70,
+    "min_pressure":980,
+    "max_pressure":1040
+  }'
+
+# 2) Send a reading
+curl -X POST http://ingestion:3001/sensor \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sensor_id":"sensor-1",
+    "timestamp":"2026-05-04T18:00:00Z",
+    "temperature":24.1,
+    "pressure":1012.4,
+    "humidity":45.8
+  }'
+```
+
+
+## Sprint 4 k6 Commands
+
+
+```bash
+# Scaling comparison
+k6 run --env BASE_URL=http://localhost:80 --env SCALE=single k6/sprint-4-scale.js
+k6 run --env BASE_URL=http://localhost:80 --env SCALE=replicated k6/sprint-4-scale.js
+
+# Replica failure test
+k6 run --env BASE_URL=http://localhost:80 k6/sprint-4-replica.js
+```
+
+
+During replica-failure test:
+
+
+```bash
+docker compose ps
+docker stop <container-id>
+docker compose ps
+docker compose up --scale dashboard-api=3 -d
+```
 
 
 ## Sprint History
