@@ -6,6 +6,7 @@
 
 	handle_path /readings* {
 		reverse_proxy ingestion:3001
+			lb_policy round_robin
 	}
 
 	handle /dashboard {
