@@ -5,8 +5,9 @@
 	}
 
 	handle_path /readings* {
-		reverse_proxy ingestion:3001
+		reverse_proxy ingestion:3001 {
 			lb_policy round_robin
+		}
 	}
 
 	handle /dashboard {
@@ -35,8 +36,8 @@
 		reverse_proxy device-management-service:3000
 	}
 
-	# Default 404 for unknown paths
+	# Serve UI on root
 	handle {
-		respond "Not Found" 404
+		reverse_proxy dashboard-ui:80
 	}
 }
