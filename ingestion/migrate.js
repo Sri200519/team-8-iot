@@ -20,8 +20,9 @@ async function main() {
         console.log('sensor_readings table created');
     } catch (e) {
         console.error('Failed to initialize sensor_readings table:', e);
-        await pool.end();
         process.exit(1);
+    } finally {
+        await pool.end();
     }
 }
 
