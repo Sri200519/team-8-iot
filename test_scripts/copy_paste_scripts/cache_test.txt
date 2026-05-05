@@ -1,0 +1,3 @@
+Go to Holmes and copy and paste (sensorId should be one that is already in readings db):
+
+curl http://dashboard-api:3000/latest-readings/2
