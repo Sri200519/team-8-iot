@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3004;
 const QUEUE_KEY = process.env.QUEUE_KEY || 'sensor:readings:queue';
-const DLQ_KEY = process.env.STORAGE_DLQ_KEY || `storage:dlq`;
+const DLQ_KEY = process.env.STORAGE_DLQ_KEY || `${QUEUE_KEY}:dlq`;
 const BATCH_SIZE = Number(process.env.BATCH_SIZE || 50);
 const BATCH_FLUSH_MS = Number(process.env.BATCH_FLUSH_MS || 2000);
 const REQUIRED_FIELDS = ['reading_id', 'sensor_id', 'timestamp', 'temperature', 'pressure', 'humidity'];
@@ -31,20 +31,25 @@ app.get('/health', async (req, res) => {
       redisHealthClient.lLen(DLQ_KEY),
     ]);
     
+    const queueStatus = dlqDepth > 0 ? 'degraded' : 'healthy';
     res.status(200).json({
-      status: 'healthy',
-      redis: 'ok',
-      depth,
-      dlq_depth: dlqDepth,
+      redis: 'healthy',
+      queue: {
+        status: queueStatus,
+        depth,
+        dlq_depth: dlqDepth,
+      },
       last_job_at: lastJobAt,
       jobs_processed: jobsProcessed
     });
   } catch (err) {
     res.status(503).json({
-      status: 'unhealthy',
-      redis: 'error: ' + err.message,
-      depth: 0,
-      dlq_depth: 0,
+      redis: 'unhealthy: ' + err.message,
+      queue: {
+        status: 'unhealthy',
+        depth: 0,
+        dlq_depth: 0,
+      },
       last_job_at: lastJobAt,
       jobs_processed: jobsProcessed
     });
