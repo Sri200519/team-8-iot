@@ -13,16 +13,16 @@
 ## Team and Service Ownership
 
 
-| Team Member | Services / Components Owned |
-| ----------- | --------------------------- |
-| Eric Gu | `dashboard-api/` (replication + statelessness) |
-| Nam Pham | `ingestion/` (replication + statelessness) |
-| Srikar Kopparapu | `sensor-registry/` (replication + statelessness) |
-| William Hammond | `caddy/` (load balancing + compose integration) |
-| Sean Young | `k6/` (`sprint-4-scale.js`, `sprint-4-replica.js`) |
-| Zaeem Chaudhary | `dashboard-ui/` (demo UI + end-to-end flow) |
-| Nathan Chen | `test_scripts/` (demo/service test scripts) |
-| Justin Manoj | `README.md` (final README + sprint docs polish) |
+| Team Member | Services / Components Owned                            |
+| ----------- | ------------------------------------------------------ |
+| Zaeem Chaudhary       | `Sensor Registry Service`     |
+| Srikar Kopparapu      | `Device Management Service`               |
+| Nathan Chen           | `Ingestion Service`             |
+| Justin Manoj          | `Report Generation Worker`               |
+| Sean Young            | `Alert Service`               |
+| Nam Pham              | `Storage Worker`           |
+| William Hammond       | `Anomaly Worker`               |
+| Eric Gu               | `Dashboard API` |
 
 > Ownership is verified by `git log --author`. Each person must have meaningful commits in the directories they claim.
 
