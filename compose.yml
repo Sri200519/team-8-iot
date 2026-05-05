@@ -61,7 +61,6 @@ services:
     build:
       context: .
       dockerfile: ingestion/Dockerfile
-    container_name: ingestion-service
     restart: unless-stopped
     depends_on:
       ingestion-db:
