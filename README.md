@@ -1163,6 +1163,7 @@ curl -X POST http://device-management-service:3000/devices/register \
   "metadata": {},
   "idempotency_key": "key-abc-123"
 }
+```
 
 
 ### GET /devices/:id
@@ -1186,7 +1187,7 @@ Responses:
 
 ```bash
 curl http://device-management-service:3000/devices/device-001
-
+```
 
 Example response (200):
 
@@ -1229,6 +1230,7 @@ Example response (200):
   "status": "scheduled",
   "device_id": "device-001"
 }
+```
 
 
 ### POST /devices/:id/firmware
@@ -1258,11 +1260,12 @@ curl -X POST http://device-management-service:3000/devices/device-001/firmware \
  -d '{
    "version": "1.0.2"
  }'
+ ```
 
 
 Example response (200):
 
-
+```json
 {
   "status": "updated",
   "device_id": "device-001",
