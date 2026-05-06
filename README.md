@@ -1,16 +1,24 @@
 # Endless Eight — IoT Sensor Monitoring Dashboard
 
 
+
+
 **Course:** COMPSCI 426  
 **Team:** Eric Gu, Zaeem Chaudhary, Justin Manoj, Sean Young, Srikar Kopparapu, Nam Pham, William Hammond, Nathan Chen
 **System:** IoT Sensor Monitoring Dashboard
 **Repository:** https://github.com/Sri200519/team-8-iot.git
 
 
+
+
 ---
 
 
+
+
 ## Team and Service Ownership
+
+
 
 
 | Team Member | Services / Components Owned                            |
@@ -24,13 +32,22 @@
 | William Hammond       | `Anomaly Worker`               |
 | Eric Gu               | `Dashboard API` |
 
+
+
+
 > Ownership is verified by `git log --author`. Each person must have meaningful commits in the directories they claim.
+
+
 
 
 ---
 
 
+
+
 ## How to Start the System
+
+
 
 
 ```bash
@@ -38,16 +55,24 @@
 docker compose up --build
 
 
+
+
 # Start with service replicas (Sprint 4)
-docker compose up --build --scale ingestion=3 --scale dashboard-api=3 --scale sensor-registry-service=3 -d
+docker compose up --scale dashboard-api=3 --scale ingestion=3 --scale sensor-registry-service=3 –-build
+
+
 
 
 # Verify all services are healthy
 docker compose ps
 
 
+
+
 # Stream logs
 docker compose logs -f
+
+
 
 
 # Open a shell in the holmes investigation container
@@ -55,7 +80,38 @@ docker compose exec holmes bash
 ```
 
 
+## Service Access
+
+
+### Public entrypoint through Caddy
+
+
+- `http://localhost:80`
+
+
+### Caddy routes
+
+
+- `/readings*` -> `ingestion-service:3001`
+- `/dashboard*` -> `dashboard-api:3000`
+- `/alerts*` -> `alert-service:3000`
+- `/sensors*` -> `sensor-registry-service:3000`
+- `/devices*` -> `device-management-service:3000`
+
+
+### Internal-only endpoints
+
+
+- `anomaly-worker:3002` (health endpoint)
+- `report-gen-worker:3000` (health endpoint)
+- `storage-worker:3004` (health endpoint)
+
+
+
+
 ### Base URLs (development)
+
+
 
 
 ```
@@ -71,36 +127,86 @@ holmes                 (no port — access via exec)
 ```
 
 
+
+
 > From inside holmes, services are reachable by name:
 > `curl http://dashboard-api:3000/health`
 >
 > See [holmes/README.md](holmes/README.md) for a full tool reference.
 
 
+
+
 ---
+
+
 
 
 ## System Overview
 
 
-[One paragraph describing what your system does and how the services interact.
-Include which service calls which, what queues exist, and how data flows.]
+The system ingests IoT climate readings (temperature, humidity, pressure), validates and enqueues them in Redis, and processes them with worker pipelines. `storage-worker` consumes the queue and batch-persists readings to Postgres. `anomaly-worker` consumes readings, fetches threshold metadata from `sensor-registry-service`, detects violations, and publishes alert events. `alert-service` subscribes to those events and stores alerts in the alert database. `dashboard-api` exposes read/query endpoints for latest readings and report requests. Dead-letter queues are used by workers for malformed or unprocessable messages.
 
 
-This system serves to record and present sensor reading data relating to temperature, pressure, and humidity from different locations and different time intervals.
+## Seed Data Steps (Required Before Demo/k6)
 
 
-Sensors that have their readings posted in will be read idempotently by the ingestion service and pushed to Redis queue. From this queue, a storage worker will consume it and batch write readings to the Readings DB.
+Run these after `docker compose up` so endpoints and k6 tests have data.
 
 
-The Anomaly Detection Worker will similarly consume the queue, checking any value thresholds with the Sensory Registry Service for any violations and publishing an alert on Redis when one is detected. The Alert Service listens for when this happens and writes an alert into the Alert DB.
-Device information is also kept track of by the Device Management Service, which keeps track of various sensors’ metadata like versions and statuses.
+### 1) Create a sensor in Sensor Registry
 
 
-At any point a bad reading is placed into a queue, it is eventually sorted and handled in a dead letter queue.
+```bash
+curl -X POST http://localhost:80/sensors/sensors \
+ -H "Content-Type: application/json" \
+ -d '{
+   "sensor_id": "sensor-1",
+   "location": "lab-a",
+   "type": "climate",
+   "min_temp": 15,
+   "max_temp": 30,
+   "min_humidity": 20,
+   "max_humidity": 70,
+   "min_pressure": 980,
+   "max_pressure": 1040
+ }'
+```
 
 
-Dashboard information is shown via the Dashboard service, which reads from the Readings DB or a closer Redis cache.
+### 2) Push at least one reading through ingestion
+
+
+```bash
+curl -X POST http://localhost:80/readings/sensor \
+ -H "Content-Type: application/json" \
+ -d '{
+   "sensor_id": "sensor-1",
+   "timestamp": "2026-05-04T18:00:00Z",
+   "temperature": 24.1,
+   "pressure": 1012.4,
+   "humidity": 45.8
+ }'
+```
+
+
+### 3) Optional: create a device record
+
+
+```bash
+curl -X POST http://localhost:80/devices/devices/register \
+ -H "Content-Type: application/json" \
+ -d '{
+   "deviceId": "device-001",
+   "sensorId": "sensor-1",
+   "status": "active",
+   "idempotencyKey": "seed-key-001"
+ }'
+```
+
+
+
+
 
 
 
@@ -110,7 +216,15 @@ Dashboard information is shown via the Dashboard service, which reads from the R
 ---
 
 
+
+
 ## API Reference
+
+
+
+
+
+
 
 
 
@@ -123,24 +237,105 @@ Dashboard information is shown via the Dashboard service, which reads from the R
 -->
 
 
+
+
 —
+
+
 
 
 ### Dashboard API Service
 
 
+### POST /reports/request
+```
+POST /reports/request
+
+
+
+
+  Publishes report generation requests for the report generation worker to read.
+
+
+
+
+  Required Parameters:
+    sensor_id INT
+    start_time TIMESTAMP
+    end_time TIMESTAMP
+
+
+
+
+  Responses:
+    400  Validation failed, missing or invalid fields
+    202  Successful report request submission
+    500  Failed to submit report request
+```
+
+
+
+
+**Example request:**
+
+
+
+
+```bash
+curl -X POST http://localhost:80/dashboard/reports/request \
+ -H "Content-Type: application/json" \
+ -d '{
+   "sensor_id": "sensor-1",
+   "start_time": "2026-05-04T17:00:00Z",
+   "end_time": "2026-05-04T18:30:00Z"
+ }'
+```
+
+
+
+
+**Example response (202):**
+
+
+
+
+```json
+{
+  "status": "queued",
+  "request_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "queue": "report-gen:queue",
+  "request": {
+	"request_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+	“sensor_id”: “sensor-1”,
+	"start_time": "2026-05-04T17:00:00Z",
+   	"end_time": "2026-05-04T18:30:00Z"
+  }
+}
+```
+
+
+
+
 ### GET /latest-readings/:sensor_id
+
+
 
 
 ```
 GET /latest-readings/:sensor_id
 
 
+
+
   Gets latest reading related to a sensor from its sensor_id, will check for cached result.
+
+
 
 
   Required Parameters:
     sensor_id INT
+
+
 
 
   Responses:
@@ -149,7 +344,11 @@ GET /latest-readings/:sensor_id
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -157,7 +356,11 @@ curl http://dashboard-api:3000/latest-readings/sensor_one
 ```
 
 
+
+
 **Example response (201):**
+
+
 
 
 ```json
@@ -172,14 +375,22 @@ curl http://dashboard-api:3000/latest-readings/sensor_one
 ```
 
 
+
+
 ### POST /dashboard
+
+
 
 
 ```
 POST /dashboard
 
 
+
+
   Adds a new sensor reading into the sensor registry DB.
+
+
 
 
   Required Parameters:
@@ -190,6 +401,8 @@ POST /dashboard
     humidity DOUBLE
 
 
+
+
   Responses:
     400  Validation failed, invalid ID and/or missing input fields
     201  Successful sensor reading submission
@@ -197,17 +410,31 @@ POST /dashboard
 ```
 
 
+
+
 **Example request:**
 
 
+
+
 ```bash
-curl -X POST http://dashboard-api:3000/dashboard \
-  -H "Content-Type: application/json" \
-  -d '{"sensor_id":"sensor-1","timestamp":"2026-04-09T15:10:00Z","temperature":23.2,"pressure":1012.2,"humidity":10.1}'
+curl -X POST http://localhost:80/dashboard/dashboard \
+ -H "Content-Type: application/json" \
+ -d '{
+   "sensor_id": "sensor-1",
+   "timestamp": "2026-05-04T18:05:00Z",
+   "temperature": 23.9,
+   "pressure": 1012.0,
+   "humidity": 46.1
+ }'
 ```
 
 
+
+
 **Example response (201):**
+
+
 
 
 ```json
@@ -218,14 +445,22 @@ curl -X POST http://dashboard-api:3000/dashboard \
 ```
 
 
+
+
 ### GET /health
+
+
 
 
 ```
 GET /health
 
 
+
+
   Returns the health status of this service and its dependencies.
+
+
 
 
   Responses:
@@ -234,7 +469,11 @@ GET /health
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -242,7 +481,11 @@ curl http://dashboard-api:3000/health
 ```
 
 
+
+
 **Example response (200):**
+
+
 
 
 ```json
@@ -254,7 +497,11 @@ curl http://dashboard-api:3000/health
 ```
 
 
+
+
 **Example response (503):**
+
+
 
 
 ```json
@@ -266,20 +513,32 @@ curl http://dashboard-api:3000/health
 ```
 
 
+
+
 ---
+
+
 
 
 ### Ingestion Service
 
 
+
+
 ### POST /sensor
+
+
 
 
 ```
 POST /sensor
 
 
+
+
   Publishes validated sensor reading data for redis subscribers, avoids publishing any duplicate data based on id and timestamp
+
+
 
 
   Required Parameters:
@@ -290,6 +549,8 @@ POST /sensor
     humidity DOUBLE
 
 
+
+
   Responses:
     400  Missing sensor_id
     200  Duplicate Data, nothing is published
@@ -298,17 +559,23 @@ POST /sensor
 ```
 
 
+
+
 **Example request:**
 
 
+
+
 ```bash
-curl -X POST http://ingestion:3001/sensor \
-  -H "Content-Type: application/json" \
-  -d '{"sensor_id":"sensor-1","timestamp":"2026-04-09T15:10:00Z","temperature":22.5,"pressure":1013.2,"humidity":48.7}'
+curl http://ingestion:3001/sensor
 ```
 
 
+
+
 **Example response (200):**
+
+
 
 
 ```json
@@ -323,18 +590,28 @@ curl -X POST http://ingestion:3001/sensor \
 ```
 
 
+
+
 ### GET /data
+
+
 
 
 ```
 GET /data
 
 
+
+
   Gets all sensor data from a sensor, given its sensor_id
+
+
 
 
   Required Parameters:
     sensor_id STRING
+
+
 
 
   Responses:
@@ -344,7 +621,11 @@ GET /data
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -352,7 +633,11 @@ curl http://ingestion:3001/data?sensor_id=1
 ```
 
 
+
+
 **Example response (200):**
+
+
 
 
 ```json
@@ -372,14 +657,22 @@ curl http://ingestion:3001/data?sensor_id=1
 ```
 
 
+
+
 ### GET /health
+
+
 
 
 ```
 GET /health
 
 
+
+
   Returns the health status of this service and its dependencies.
+
+
 
 
   Responses:
@@ -388,7 +681,11 @@ GET /health
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -396,7 +693,11 @@ curl http://ingestion:3001/health
 ```
 
 
+
+
 **Example response (200):**
+
+
 
 
 ```json
@@ -408,7 +709,11 @@ curl http://ingestion:3001/health
 ```
 
 
+
+
 **Example response (503):**
+
+
 
 
 ```json
@@ -426,210 +731,28 @@ curl http://ingestion:3001/health
 ### Sensor Registry Service
 
 
+
+
 ### GET /sensors/:id
+
+
 
 
 ```
 GET /sensors/:id
 
 
-  Gets all metadata with relation to a sensor, given its  reading id
-
-
-  Required Parameters:
-    id STRING
-
-
-  Responses:
-    404 Sensor not found
-    200 Sensor metadata returned
-    500 Failed to fetch metadata
-```
-
-
-**Example request:**
-
-
-```bash
-curl http://sensor-registry-service:3000/sensors/sensor-1
-```
-
-
-**Example response (200):**
-
-
-```json
-{
-  "readingId": "550e8400-e29b-41d4-a716-446655440000",
-  "timestamp": "2026-04-09T15:10:00Z",
-  "sensorId": "sensor-1",
-  "temperature": 22.5,
-  "pressure": 1013.2,
-  "humidity": 48.7
-}
-```
-
-
-### GET /health
-
-
-```
-GET /health
-
-
-  Returns the health status of this service and its dependencies.
-
-
-  Responses:
-    200  Service and all dependencies healthy
-    503  One or more dependencies unreachable
-```
-
-
-**Example request:**
-
-
-```bash
-curl http://sensor-registry-service:3000/health
-```
-
-
-**Example response (200):**
-
-
-```json
-{
-  "status": "healthy",
-  "db": "ok",
-  "redis": "ok"
-}
-```
-
-
-**Example response (503):**
-
-
-```json
-{
-  "status": "unhealthy",
-  "db": "ok",
-  "redis": "error: connection refused"
-}
-```
-
-
----
-
-
-### Alert Service
-
-
-### GET /alerts
-
-
-```
-GET /alerts
-
-
-  Returns information on all currently existing alerts stored in the Alerts DB
-
-
-  Responses:
-    The 50 latest Alerts, or Nothing
-```
-
-
-```bash
-curl http://alert-service:3000/alerts
-```
-
-
-**Example response:**
-
-
-```json
-{
-  "alert_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-  "sensor_id": "sensor-042",
-  "message": "Temperature exceeded upper threshold of 80.0°C (reading: 94.3°C)",
-  "timestamp": "2025-04-09T14:22:05Z",
-  "reading_value": 94.3,
-  "alert_type": "HIGH_TEMPERATURE"
-}
-
-
-```
-
-
-
-
-### GET /health
-
-
-```
-GET /health
-
-
-  Returns the health status of this service and its dependencies.
-
-
-  Responses:
-    200  Service and all dependencies healthy
-    503  One or more dependencies unreachable
-```
-
-
-**Example request:**
-
-
-```bash
-curl http://alert-service:3000/health
-```
-
-
-**Example response (200):**
-
-
-```json
-{
-  "status": "healthy",
-  "db": "ok",
-  "redis": "ok"
-}
-```
-
-
-**Example response (503):**
-
-
-```json
-{
-  "status": "unhealthy",
-  "db": "ok",
-  "redis": "error: connection refused"
-}
-```
-
-
----
-
-
-<!-- Add the rest of your endpoints below. One ### section per endpoint. -->
-### Sensor Registry Service
-
-
-### GET /sensors/:id
-
-
-```
-GET /sensors/:id
 
 
   Returns sensor metadata and threshold information for a given sensor.
 
 
+
+
   Required Parameters:
     id STRING — the sensor ID
+
+
 
 
   Responses:
@@ -637,7 +760,11 @@ GET /sensors/:id
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -645,7 +772,11 @@ curl http://sensor-registry-service:3000/sensors/sensor-042
 ```
 
 
+
+
 **Example response (200):**
+
+
 
 
 ```json
@@ -658,20 +789,180 @@ curl http://sensor-registry-service:3000/sensors/sensor-042
 ```
 
 
+### POST /sensors
+
+
+
+
+```
+POST /sensors
+
+
+  Registers a new sensor and its threshold configuration.
+
+
+
+
+  Required Parameters:
+    sensor_id STRING
+    location STRING
+    type STRING
+    min_temp DOUBLE
+    max_temp DOUBLE
+    min_humidity DOUBLE
+    max_humidity DOUBLE
+    min_pressure DOUBLE
+    max_pressure DOUBLE
+
+
+
+
+  Responses:
+    201  Sensor created
+    400  Invalid input
+    500  Failed to create sensor
+```
+
+
+
+
+**Example request:**
+
+
+
+
+```bash
+```bash
+curl -X POST http://sensor-registry-service:3000/sensors \
+-H "Content-Type: application/json" \
+-d '{
+"sensor_id": "sensor-1",
+"location": "lab-a",
+"type": "climate",
+"min_temp": 15,
+"max_temp": 30,
+"min_humidity": 20,
+"max_humidity": 70,
+"min_pressure": 980,
+"max_pressure": 1040
+}'
+```
+
+
+
+
+**Example response (201):**
+
+
+
+
+```json
+{
+"sensor_id": "sensor-1",
+"location": "lab-a",
+"type": "climate",
+"min_temp": 15,
+"max_temp": 30,
+"min_humidity": 20,
+"max_humidity": 70,
+"min_pressure": 980,
+"max_pressure": 1040
+}
+```
+
+
+### GET /health
+
+
+
+
+```
+GET /health
+
+
+
+
+  Returns the health status of this service and its dependencies.
+
+
+
+
+  Responses:
+    200  Service and all dependencies healthy
+    503  One or more dependencies unreachable
+```
+
+
+
+
+**Example request:**
+
+
+
+
+```bash
+curl http://sensor-registry:3000/health
+```
+
+
+
+
+**Example response (200):**
+
+
+
+
+```json
+{
+  "status": "healthy",
+  "db": "ok",
+  "redis": "ok"
+}
+```
+
+
+
+
+**Example response (503):**
+
+
+
+
+```json
+{
+  "status": "unhealthy",
+  "db": "ok",
+  "redis": "error: connection refused"
+}
+```
+
+
+
+
 ---
+
+
 
 
 ### Alert Service
 
 
+
+
 ### GET /alerts
+
+
 
 
 ```
 GET /alerts
 
 
+
+
   Returns all alerts currently stored in the Alert DB.
+
+
 
 
   Responses:
@@ -679,7 +970,11 @@ GET /alerts
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -687,29 +982,128 @@ curl http://alert-service:3000/alerts
 ```
 
 
+
+
 **Example response (200):**
 
 
+
+
 ```json
-[]
+[
+  {
+    "alert_id": "550e8400-e29b-41d4-a716-446655440000",
+    "sensor_id": "sensor-001",
+    "message": "Temperature exceeded maximum threshold",
+    "timestamp": "2026-04-28T10:01:00Z",
+    "reading_value": 105.3,
+    "alert_type": "temperature"
+  },
+  {
+    "alert_id": "660e8400-e29b-41d4-a716-446655440111",
+    "sensor_id": "sensor-002",
+    "message": "Humidity below minimum threshold",
+    "timestamp": "2026-04-28T09:58:00Z",
+    "reading_value": 20.1,
+    "alert_type": "humidity"
+  }
+]
+
+
+```
+### GET /health
+
+
+
+
+```
+GET /health
+
+
+
+
+  Returns the health status of this service and its dependencies.
+
+
+
+
+  Responses:
+    200  Service and all dependencies healthy
+    503  One or more dependencies unreachable
+```
+
+
+
+
+**Example request:**
+
+
+
+
+```bash
+curl http://alert-service:3000/health
+```
+
+
+
+
+**Example response (200):**
+
+
+
+
+```json
+{
+  "status": "healthy",
+  "db": "ok",
+  "redis": "ok"
+}
+```
+
+
+
+
+**Example response (503):**
+
+
+
+
+```json
+{
+  "status": "unhealthy",
+  "db": "ok",
+  "redis": "error: connection refused"
+}
 ```
 
 
 ---
 
 
+
+
+
+
 ### Device Management Service
 
 
+
+
 ### POST /devices/register
+
+
 
 
 ```
 POST /devices/register
 
 
+
+
   Registers a new device. Idempotent — duplicate requests with the
   same idempotency key return the original record without creating a duplicate.
+
+
 
 
   Required fields:
@@ -718,10 +1112,14 @@ POST /devices/register
     idempotencyKey STRING
 
 
+
+
   Optional fields:
     sensorId STRING
     version STRING
     metadata OBJECT
+
+
 
 
   Responses:
@@ -733,7 +1131,11 @@ POST /devices/register
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -743,7 +1145,11 @@ curl -X POST http://device-management-service:3000/devices/register \
 ```
 
 
+
+
 **Example response (201):**
+
+
 
 
 ```json
@@ -757,23 +1163,140 @@ curl -X POST http://device-management-service:3000/devices/register \
   "metadata": {},
   "idempotency_key": "key-abc-123"
 }
+
+
+### GET /devices/:id
+
+
+GET /devices/:id
+
+
+Returns device information for a given device ID.
+Required Parameters:
+ id STRING
+Responses:
+ 200 Device found
+ 404 Device not found
+
+
+**Example request:**
+
+
+
+
+```bash
+curl http://device-management-service:3000/devices/device-001
+
+
+Example response (200):
+
+
+{
+  "device_id": "device-001",
+  "sensor_id": "sensor-1",
+  "status": "active",
+  "version": "1.0.0",
+  "registered_at": "2026-05-04T18:00:00Z",
+  "last_seen_at": "2026-05-04T18:05:00Z"
+}
+
+
+### POST /devices/:id/maintenance
+POST /devices/:id/maintenance
+Schedules a maintenance window for a device.
+Required Parameters:
+ id STRING
+Body Parameters:
+ startTime STRING
+ endTime STRING
+ reason STRING
+Responses:
+ 200 Maintenance scheduled
+ 400 Invalid input
+
+
+**Example request:**
+```bash
+curl -X POST http://device-management-service:3000/devices/device-001/maintenance \
+ -H "Content-Type: application/json" \
+ -d '{
+   "startTime": "2026-05-05T10:00:00Z",
+   "endTime": "2026-05-05T12:00:00Z",
+   "reason": "calibration"
+ }'
+Example response (200):
+{
+  "status": "scheduled",
+  "device_id": "device-001"
+}
+
+
+### POST /devices/:id/firmware
+
+
+
+
+POST /devices/:id/firmware
+Updates the firmware version of a device.
+Required Parameters:
+ id STRING
+Body Parameters:
+ version STRING
+Responses:
+ 200 Firmware updated
+ 400 Invalid input
+
+
+**Example request:**
+
+
+
+
+```bash
+curl -X POST http://device-management-service:3000/devices/device-001/firmware \
+ -H "Content-Type: application/json" \
+ -d '{
+   "version": "1.0.2"
+ }'
+
+
+Example response (200):
+
+
+{
+  "status": "updated",
+  "device_id": "device-001",
+  "version": "1.0.2"
+}
 ```
+
+
 
 
 ---
 
 
+
+
 ### Report Generation Worker
 
 
+
+
 ### GET /health
+
+
 
 
 ```
 GET /health
 
 
+
+
   Returns the health status of the report generation worker.
+
+
 
 
   Responses:
@@ -782,7 +1305,11 @@ GET /health
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -790,7 +1317,11 @@ curl http://report-gen-worker:3000/health
 ```
 
 
+
+
 **Example response (200):**
+
+
 
 
 ```json
@@ -814,17 +1345,27 @@ curl http://report-gen-worker:3000/health
 ```
 
 
+
+
 ### Storage Worker
 
 
+
+
 ### GET /health
+
+
 
 
 ```
 GET /health
 
 
+
+
   Returns the health status of the storage worker.
+
+
 
 
   Responses:
@@ -833,7 +1374,11 @@ GET /health
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -841,7 +1386,11 @@ curl http://storage-worker:3004/health
 ```
 
 
+
+
 **Example response (200):**
+
+
 
 
 ```json
@@ -856,7 +1405,11 @@ curl http://storage-worker:3004/health
 ```
 
 
+
+
 **Example response (503):**
+
+
 
 
 ```json
@@ -873,17 +1426,29 @@ curl http://storage-worker:3004/health
 
 
 
+
+
+
+
 ### Anomaly Worker
 
 
+
+
 ### GET /health
+
+
 
 
 ```
 GET /health
 
 
+
+
   Returns the health status of the anomaly worker and its dependencies.
+
+
 
 
   Responses:
@@ -892,7 +1457,11 @@ GET /health
 ```
 
 
+
+
 **Example request:**
+
+
 
 
 ```bash
@@ -900,7 +1469,11 @@ curl http://anomaly-worker:3002/health
 ```
 
 
+
+
 **Example response (200):**
+
+
 
 
 ```json
@@ -915,7 +1488,11 @@ curl http://anomaly-worker:3002/health
 ```
 
 
+
+
 **Example response (503):**
+
+
 
 
 ```json
@@ -930,66 +1507,63 @@ curl http://anomaly-worker:3002/health
 ```
 
 
----
+–--
 
 
----
+## k6 Tests (Sprint 4)
 
 
-## Seed Data Steps (Before Running Sprint 4 k6 Tests)
-
-
-```bash
-# 1) Create sensor metadata
-curl -X POST http://sensor-registry-service:3000/sensors \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sensor_id":"sensor-1",
-    "location":"lab-a",
-    "type":"climate",
-    "min_temp":15,
-    "max_temp":30,
-    "min_humidity":20,
-    "max_humidity":70,
-    "min_pressure":980,
-    "max_pressure":1040
-  }'
-
-# 2) Send a reading
-curl -X POST http://ingestion:3001/sensor \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sensor_id":"sensor-1",
-    "timestamp":"2026-05-04T18:00:00Z",
-    "temperature":24.1,
-    "pressure":1012.4,
-    "humidity":45.8
-  }'
-```
-
-
-## Sprint 4 k6 Commands
+### Scaling comparison (`k6/sprint-4-scale.js`)
 
 
 ```bash
-# Scaling comparison
+# from host (if k6 installed)
 k6 run --env BASE_URL=http://localhost:80 --env SCALE=single k6/sprint-4-scale.js
 k6 run --env BASE_URL=http://localhost:80 --env SCALE=replicated k6/sprint-4-scale.js
 
-# Replica failure test
-k6 run --env BASE_URL=http://localhost:80 k6/sprint-4-replica.js
+
+# from Holmes
+docker compose exec holmes bash
+k6 run --env SCALE=single /workspace/k6/sprint-4-scale.js
+k6 run --env SCALE=replicated /workspace/k6/sprint-4-scale.js
 ```
 
 
-During replica-failure test:
+### Replica failure test (`k6/sprint-4-replica.js`)
 
 
 ```bash
+# from host (if k6 installed)
+k6 run --env BASE_URL=http://localhost:80 k6/sprint-4-replica.js
+
+
+# from Holmes
+docker compose exec holmes bash
+k6 run /workspace/k6/sprint-4-replica.js
+```
+
+
+### Replica failure drill during test
+
+
+```bash
+# list replica containers
 docker compose ps
+
+
+# stop one replica during sustained phase
 docker stop <container-id>
+
+
+# verify survivors remain healthy
 docker compose ps
+
+
+# restore desired replica count
 docker compose up --scale dashboard-api=3 -d
 ```
+
+
 
 
 ## Sprint History
